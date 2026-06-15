@@ -59,9 +59,9 @@ Select the candidate with the merge-base commit closest to the current HEAD. If 
 
 ## Step 3: Locate the epic worktree
 
-Epic worktrees follow the convention `C:/repos/wt-acme-{epic-id}-{epic-slug}`.
+Epic worktrees follow the convention `C:/repos/wt-{epic-id}-{epic-slug}`.
 
-Example: `epic/ORFI-60446-public-api` → `C:/repos/wt-acme-60446-public-api`
+Example: `epic/ORFI-60446-public-api` → `C:/repos/wt-60446-public-api`
 
 Verify it exists:
 
@@ -72,7 +72,7 @@ git worktree list
 Extract the path for `EPIC_BRANCH` from the output. If the worktree is not listed, abort:
 
 > ABORTED: Epic worktree for {EPIC_BRANCH} not found.
-> Expected path: C:/repos/wt-acme-{epic-id}-{slug}
+> Expected path: C:/repos/wt-{epic-id}-{slug}
 > Create it with: git worktree add <path> {EPIC_BRANCH}
 
 Record the path as `EPIC_WORKTREE`.

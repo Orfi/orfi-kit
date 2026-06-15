@@ -37,7 +37,7 @@ The command will:
 
 1. Confirm you are on a `feature/*` branch
 2. Discover the parent `epic/*` branch (from a state file or by scanning remote branches)
-3. Locate the epic worktree at `C:/repos/wt-acme-{epic-id}-{slug}`
+3. Locate the epic worktree at `C:/repos/wt-{epic-id}-{slug}`
 4. Fetch `origin`
 5. Rebase the epic on `origin/master` and force-push it
 6. Rebase the feature on the updated epic
@@ -67,6 +67,6 @@ A bash script wired as a `PreToolUse` hook on `Bash` tool calls. It:
 ## Assumptions
 
 - Branch naming: `feature/{id}-{name}` and `epic/{id}-{name}`
-- Epic worktrees live at: `C:/repos/wt-acme-{epic-id}-{slug}`
+- Epic worktrees live at: `C:/repos/wt-{epic-id}-{slug}`
 - Each feature branch has exactly one parent epic branch
 - `git fetch` is available and the remote is named `origin`

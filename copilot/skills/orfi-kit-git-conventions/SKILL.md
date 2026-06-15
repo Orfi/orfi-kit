@@ -88,7 +88,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
 
 ### Worktree conventions
 
-- Worktree path: `C:\repos\wt-{short-name}` (e.g. `C:\repos\wt-acme-60446-public-api` for an epic, `C:\repos\wt-acme-61823-folder-crud` for a story).
+- Worktree path: `C:\repos\wt-{short-name}` (e.g. `C:\repos\wt-60446-public-api` for an epic, `C:\repos\wt-61823-folder-crud` for a story).
 - One worktree per branch. Never share a worktree across stories.
 - After a story is merged, prune the worktree AND delete the branch (local + remote).
 
@@ -99,7 +99,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
    ```bash
    cd C:/repos/{main-repo}
    git fetch origin
-   git worktree add -b feature/ORFI-61823-folder-crud C:/repos/wt-acme-61823-folder-crud origin/epic/ORFI-60446-public-api
+   git worktree add -b feature/ORFI-61823-folder-crud C:/repos/wt-61823-folder-crud origin/epic/ORFI-60446-public-api
    ```
 3. `cd` into the new worktree. All subsequent work happens there.
 4. Carry local gitignored state from the epic worktree (see below).
@@ -111,12 +111,12 @@ Tracked files (`.planning/`, `helper_files/SESSION-STATE.md`, tracked ADRs) arri
 
 ```bash
 # From the new story worktree
-cd C:/repos/wt-acme-{story-name}
+cd C:/repos/wt-{story-name}
 
 # Windows — use `mklink /J` for directories (junction, no admin needed)
 # and `mklink /H` for files. Use `mklink /D` only if Developer Mode or admin is available.
-cmd //c "mklink /J .swarm C:\repos\wt-acme-{epic-worktree}\.swarm"
-cmd //c "mklink /H helper_files\golden-file-cred.md C:\repos\wt-acme-{epic-worktree}\helper_files\golden-file-cred.md"
+cmd //c "mklink /J .swarm C:\repos\wt-{epic-worktree}\.swarm"
+cmd //c "mklink /H helper_files\golden-file-cred.md C:\repos\wt-{epic-worktree}\helper_files\golden-file-cred.md"
 ```
 
 Rules:
