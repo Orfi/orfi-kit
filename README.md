@@ -1,3 +1,5 @@
+![orfi-kit](assets/header.png)
+
 # orfi-kit
 
 A generic, reusable bundle of **Claude Code + GitHub Copilot CLI** skills, commands, and hooks for
