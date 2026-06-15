@@ -7,15 +7,15 @@ disable-model-invocation: true
 # orfi-kit-sync-branch (Copilot version)
 
 Sync chain:
-`origin/master -> epic/PANV-* -> feature/PANV-*`
+`origin/master -> epic/* -> feature/*`
 
-Run from a `feature/PANV-*` branch.
+Run from a `feature/*` branch.
 
 ## 1. Verify current feature branch
 
 ```powershell
 $featureBranch = git branch --show-current
-if ($featureBranch -notmatch '^feature/PANV-') { throw "ABORTED: must run on feature/PANV-* (current: $featureBranch)" }
+if ($featureBranch -notmatch '^feature/') { throw "ABORTED: must run on feature/* (current: $featureBranch)" }
 $featureWorktree = (Get-Location).Path
 ```
 
@@ -32,7 +32,7 @@ If missing, discover:
 
 ```powershell
 git fetch origin --prune
-$candidates = git branch -r | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^origin/epic/PANV-' } | ForEach-Object { $_ -replace '^origin/' }
+$candidates = git branch -r | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^origin/epic/' } | ForEach-Object { $_ -replace '^origin/' }
 ```
 
 If multiple candidates exist, pick nearest ancestor:

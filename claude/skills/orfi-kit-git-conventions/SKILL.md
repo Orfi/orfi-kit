@@ -8,7 +8,7 @@ These conventions define how to format branch names, commit messages, and pull r
 
 ## Ticket ID
 
-If you don't already know the ticket ID, ask the user for it. A ticket ID can be any project prefix followed by a number (e.g., ORFI-123, PANV-456, PROJ-789). If there is no ticket ID, omit it from all formats below.
+If you don't already know the ticket ID, ask the user for it. A ticket ID can be any project prefix followed by a number (e.g., ORFI-123, ABC-456, PROJ-789). If there is no ticket ID, omit it from all formats below.
 
 ## Branch Name
 

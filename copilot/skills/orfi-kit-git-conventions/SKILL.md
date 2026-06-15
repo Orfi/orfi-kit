@@ -8,7 +8,7 @@ These conventions define how to format branch names, commit messages, and pull r
 
 ## Ticket ID
 
-If you don't already know the ticket ID, ask the user for it. A ticket ID can be any project prefix followed by a number (e.g., ORFI-123, PANV-456, PROJ-789). If there is no ticket ID, omit it from all formats below.
+If you don't already know the ticket ID, ask the user for it. A ticket ID can be any project prefix followed by a number (e.g., ORFI-123, ABC-456, PROJ-789). If there is no ticket ID, omit it from all formats below.
 
 ## Branch Name
 
@@ -88,7 +88,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
 
 ### Worktree conventions
 
-- Worktree path: `C:\repos\wt-{short-name}` (e.g. `C:\repos\wt-panviva-60446-public-api` for an epic, `C:\repos\wt-panviva-61823-folder-crud` for a story).
+- Worktree path: `C:\repos\wt-{short-name}` (e.g. `C:\repos\wt-acme-60446-public-api` for an epic, `C:\repos\wt-acme-61823-folder-crud` for a story).
 - One worktree per branch. Never share a worktree across stories.
 - After a story is merged, prune the worktree AND delete the branch (local + remote).
 
@@ -99,7 +99,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
    ```bash
    cd C:/repos/{main-repo}
    git fetch origin
-   git worktree add -b feature/PANV-61823-folder-crud C:/repos/wt-panviva-61823-folder-crud origin/epic/PANV-60446-public-api
+   git worktree add -b feature/ORFI-61823-folder-crud C:/repos/wt-acme-61823-folder-crud origin/epic/ORFI-60446-public-api
    ```
 3. `cd` into the new worktree. All subsequent work happens there.
 4. Carry local gitignored state from the epic worktree (see below).
@@ -111,17 +111,17 @@ Tracked files (`.planning/`, `helper_files/SESSION-STATE.md`, tracked ADRs) arri
 
 ```bash
 # From the new story worktree
-cd C:/repos/wt-panviva-{story-name}
+cd C:/repos/wt-acme-{story-name}
 
 # Windows — use `mklink /J` for directories (junction, no admin needed)
 # and `mklink /H` for files. Use `mklink /D` only if Developer Mode or admin is available.
-cmd //c "mklink /J .swarm C:\repos\wt-panviva-{epic-worktree}\.swarm"
-cmd //c "mklink /H helper_files\golden-file-cred.md C:\repos\wt-panviva-{epic-worktree}\helper_files\golden-file-cred.md"
+cmd //c "mklink /J .swarm C:\repos\wt-acme-{epic-worktree}\.swarm"
+cmd //c "mklink /H helper_files\golden-file-cred.md C:\repos\wt-acme-{epic-worktree}\helper_files\golden-file-cred.md"
 ```
 
 Rules:
 - Symlink ONLY gitignored items. Never symlink tracked files or directories — git will see a symlink where content used to be and corrupt the branch.
-- Typical symlink targets for this project: `.swarm/`, `helper_files/golden-file-cred.md`, `helper_files/qa-vivabank-legacy-db-cred.md`, `helper_files/golden-files/`, any local `.env` file.
+- Typical symlink targets for this project: `.swarm/`, `helper_files/golden-file-cred.md`, `helper_files/qa-legacy-db-cred.md`, `helper_files/golden-files/`, any local `.env` file.
 - Reads and writes through the symlink transparently land in the epic worktree's copy — all story worktrees see the same live state.
 - When pruning the story worktree at end-of-story, remove the symlinks (or let `git worktree remove` clean them up); the underlying state in the epic worktree is untouched.
 
@@ -138,13 +138,13 @@ Two-step cascade: **master → epic → feature**. Run this:
 cd C:/repos/wt-{epic-worktree}
 git fetch origin
 git rebase origin/master
-git push origin epic/PANV-60446-public-api
+git push origin epic/ORFI-60446-public-api
 
 # Step 2: pull epic into the feature branch (from the story worktree)
 cd C:/repos/wt-{story-worktree}
 git fetch origin
-git rebase origin/epic/PANV-60446-public-api
-git push --force-with-lease origin feature/PANV-61823-folder-crud
+git rebase origin/epic/ORFI-60446-public-api
+git push --force-with-lease origin feature/ORFI-61823-folder-crud
 ```
 
 Never force-push the epic branch or master. `--force-with-lease` is only acceptable on a feature branch that is not yet merged and has no other collaborators.
@@ -158,8 +158,8 @@ Never force-push the epic branch or master. `--force-with-lease` is only accepta
    ```bash
    cd C:/repos/{main-repo}
    git worktree remove C:/repos/wt-{story-worktree}
-   git branch -D feature/PANV-61823-folder-crud
-   git push origin --delete feature/PANV-61823-folder-crud
+   git branch -D feature/ORFI-61823-folder-crud
+   git push origin --delete feature/ORFI-61823-folder-crud
    ```
 
 ### Closing the epic (epic → master)

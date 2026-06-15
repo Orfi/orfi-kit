@@ -8,7 +8,7 @@ disable-model-invocation: true
 # orfi-kit-sync-branch
 
 Sync a feature branch through its full parent hierarchy before pushing:
-`origin/master` → `epic/PANV-*` → `feature/PANV-*`
+`origin/master` → `epic/*` → `feature/*`
 
 Run this before every `git push` on a feature branch that lives under an epic branch.
 
@@ -22,9 +22,9 @@ Determine the branch for the current worktree:
 git branch --show-current
 ```
 
-The branch MUST match `feature/PANV-*`. If it does not, abort immediately:
+The branch MUST match `feature/*`. If it does not, abort immediately:
 
-> ABORTED: /orfi-kit-sync-branch only runs on feature/PANV-* branches. Current branch: {branch}
+> ABORTED: /orfi-kit-sync-branch only runs on feature/* branches. Current branch: {branch}
 > Switch to your feature branch and retry.
 
 Record `FEATURE_BRANCH` and `FEATURE_WORKTREE` (the current directory) for use in later steps.
@@ -43,7 +43,7 @@ If missing or empty, discover it dynamically:
 
 ```bash
 git fetch origin --prune -q
-git branch -r | grep "origin/epic/PANV-" | sed 's|.*origin/||' | sort
+git branch -r | grep "origin/epic/" | sed 's|.*origin/||' | sort
 ```
 
 If multiple epic branches exist, find the one whose tip is the closest ancestor to HEAD:
@@ -55,13 +55,13 @@ git merge-base HEAD origin/<candidate>
 
 Select the candidate with the merge-base commit closest to the current HEAD. If you cannot determine the parent automatically, ask the user:
 
-> Which epic branch is the parent of {FEATURE_BRANCH}? (e.g. epic/PANV-60446-public-api)
+> Which epic branch is the parent of {FEATURE_BRANCH}? (e.g. epic/ORFI-60446-public-api)
 
 ## Step 3: Locate the epic worktree
 
-Epic worktrees follow the convention `C:/repos/wt-panviva-{epic-id}-{epic-slug}`.
+Epic worktrees follow the convention `C:/repos/wt-acme-{epic-id}-{epic-slug}`.
 
-Example: `epic/PANV-60446-public-api` → `C:/repos/wt-panviva-60446-public-api`
+Example: `epic/ORFI-60446-public-api` → `C:/repos/wt-acme-60446-public-api`
 
 Verify it exists:
 
@@ -72,7 +72,7 @@ git worktree list
 Extract the path for `EPIC_BRANCH` from the output. If the worktree is not listed, abort:
 
 > ABORTED: Epic worktree for {EPIC_BRANCH} not found.
-> Expected path: C:/repos/wt-panviva-{epic-id}-{slug}
+> Expected path: C:/repos/wt-acme-{epic-id}-{slug}
 > Create it with: git worktree add <path> {EPIC_BRANCH}
 
 Record the path as `EPIC_WORKTREE`.

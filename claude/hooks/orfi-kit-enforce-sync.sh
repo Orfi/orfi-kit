@@ -1,12 +1,12 @@
 #!/bin/bash
 # ENFORCEMENT HOOK: Block pushes from a feature branch not synced with its parent epic
 # Scope   : Global (~/.claude/hooks/) — applies to all projects
-# Trigger : PreToolUse on Bash (filtered to git push on feature/PANV-* branches)
+# Trigger : PreToolUse on Bash (filtered to git push on feature/* branches)
 # Exit non-zero = BLOCK the push
 #
 # Sync order (Rule R7 extension for epic branch hierarchies):
-#   1. Rebase epic/PANV-* on origin/master
-#   2. Rebase feature/PANV-* on epic/PANV-*
+#   1. Rebase epic/* on origin/master
+#   2. Rebase feature/* on epic/*
 #   3. Then push
 #
 # Run /orfi-kit-sync-branch to perform these steps automatically.
@@ -25,9 +25,9 @@ WORKTREE="${CLAUDE_PROJECT_DIR:-$PWD}"
 # Determine the current branch of this worktree
 CURRENT_BRANCH=$(git -C "$WORKTREE" branch --show-current 2>/dev/null)
 
-# Only apply to feature/PANV-* branches
+# Only apply to feature/* branches
 case "$CURRENT_BRANCH" in
-  feature/PANV-*) ;;
+  feature/*) ;;
   *) exit 0 ;;
 esac
 
@@ -44,7 +44,7 @@ fi
 # If not in state file, discover from remote branches
 if [ -z "$EPIC_BRANCH" ]; then
   EPIC_BRANCHES=$(git -C "$WORKTREE" branch -r 2>/dev/null \
-    | grep "origin/epic/PANV-" \
+    | grep "origin/epic/" \
     | sed 's|.*origin/||' \
     | tr -d ' ')
 
