@@ -4,8 +4,8 @@
 
 A generic, reusable bundle of **Claude Code + GitHub Copilot CLI** skills, commands, and hooks for
 AI-augmented development. It packages a team's day-to-day automation — git conventions, guardrails,
-commits, code review, session state, test runners, Jira estimation, C# XML-doc rules, and branch
-sync — and installs them flat (every item is prefixed `orfi-kit-`).
+commits, code review, session state, test runners, Jira estimation, C# XML-doc and C++ Doxygen-doc
+rules, and branch sync — and installs them flat (every item is prefixed `orfi-kit-`).
 
 > **Related kit:** `orfi-ae-kit` (the Architect/Executor pattern) is a **separate** repo that lists
 > orfi-kit as a prerequisite. This repo is only orfi-kit.

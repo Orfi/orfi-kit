@@ -19,6 +19,7 @@ commands, and hooks for AI-augmented development. It packages a team's day-to-da
 - **test runners** — unit, integration, and codegraph phase test commands
 - **scrum-poker** — Fibonacci planning-poker estimation of Jira tickets (via Atlassian MCP)
 - **C# XML-doc enforcement** — client-neutral XML documentation rules
+- **C++ Doxygen-doc enforcement** — header-only Doxygen documentation rules (+ check script)
 - **branch sync** — keep a feature branch in sync with its parent epic, enforced by a push hook
 
 It is **one of two kits**:
