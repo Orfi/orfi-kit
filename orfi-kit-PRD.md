@@ -85,9 +85,10 @@ Command files (installed to the runtime):
 
 Companion documentation (repo docs — **NOT installed to the runtime**):
 
-- `orfi-kit-sync-branch.README.md` — companion docs for the sync-branch command + enforce-sync
-  hook. Keep it **alongside** the command in `claude/commands/`, but the installer must **not**
-  copy it into `~/.claude/commands/`.
+- Per-capability docs live in `docs/skills/` (one `.md` per skill / command / hook / extension),
+  not alongside the command files. The sync-branch deeper docs are
+  `docs/skills/orfi-kit-sync-branch.md`. The installer copies only the ten command files into
+  `~/.claude/commands/`; it never copies `docs/`.
 
 ### 3.2 Claude Code — skills (from `claude-tools/skills/`)
 
@@ -95,7 +96,7 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
 
 - `orfi-kit-git-conventions/`  (contains `SKILL.md`)
 - `orfi-kit-guardrails/`  (contains `SKILL.md`)
-- `orfi-kit-scrum-poker/`  (contains `SKILL.md`, `README.md`, `evals/`)
+- `orfi-kit-scrum-poker/`  (contains `SKILL.md`, `evals/`)
 - `orfi-kit-xml-docs/`  (contains `SKILL.md`)
 
 ### 3.3 Claude Code — hooks (from `claude-tools/hooks/`)
@@ -148,12 +149,14 @@ commands = 14 Copilot skills.)
 ```
 orfi-kit/
   claude/
-    commands/   <- the orfi-kit-*.md command files (+ orfi-kit-sync-branch.README.md, repo-docs only)
+    commands/   <- the 10 orfi-kit-*.md command files
     skills/     <- the 4 orfi-kit-* Claude skill dirs
     hooks/      <- orfi-kit-enforce-sync.sh
   copilot/
     skills/     <- the 14 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
+  docs/
+    skills/     <- one .md per capability (repo docs; never installed to a runtime)
   install.sh
   install.ps1
   README.md
@@ -235,8 +238,8 @@ skills get **exactly ONE home per machine**:
 Copy the **10** `orfi-kit-*.md` command files into the runtime's `commands/` dir
 (`~/.claude/commands/` and/or `~/.config/opencode/commands/`).
 
-> **Do NOT install** `orfi-kit-sync-branch.README.md` to the runtime — it is repo docs only.
-> Make sure your copy loop targets the ten command files explicitly (or filters out `*.README.md`).
+> Make sure your copy loop targets the ten command files explicitly. Per-capability docs live in
+> `docs/skills/` and are never copied to a runtime.
 
 ### 5.7 NEW for this kit (not in trackbed) — install the HOOK and the EXTENSION
 
@@ -342,7 +345,7 @@ The repo `README.md` must:
     `./install.ps1 -Help`
 - Document the **uninstall** for both.
 - Note that the **sync-branch feature's deeper docs** live in
-  `claude/commands/orfi-kit-sync-branch.README.md`.
+  `docs/skills/orfi-kit-sync-branch.md` (per-capability docs live under `docs/skills/`).
 - Mention the **settings.json hook wiring** (auto vs manual) and the **Copilot extension** install.
 
 ---
@@ -353,8 +356,8 @@ The implementer can verify completion against this list:
 
 - [ ] **All 14 skills present on both runtimes** — `claude/skills` has the 4 Claude skill dirs;
       `copilot/skills` has all 14 Copilot skill dirs.
-- [ ] **10 Claude command files** present in `claude/commands/` (plus the `.README.md` companion,
-      not installed to runtime).
+- [ ] **10 Claude command files** present in `claude/commands/`. Per-capability docs live in
+      `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
 - [ ] **Hook present** — `claude/hooks/orfi-kit-enforce-sync.sh` in the repo; installs to
       `~/.claude/hooks/`; remains executable.
 - [ ] **Hook settings wiring** — installer adds the PreToolUse/Bash entry to `settings.json`

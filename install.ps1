@@ -60,7 +60,7 @@ $CopilotSkillNames = @(
   'orfi-kit-xml-docs'
 )
 
-# 10 command files — .README.md companion deliberately excluded.
+# 10 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
 $CommandNames = @(
   'orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
   'orfi-kit-load-state','orfi-kit-persist-state','orfi-kit-run-codegraph-phase',

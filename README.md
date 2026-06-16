@@ -12,33 +12,42 @@ sync — and installs them flat (every item is prefixed `orfi-kit-`).
 
 ## What's inside
 
-### Skills (Claude Code / OpenCode) & slash commands (Copilot)
+Every row below links to a full doc page under [`docs/skills/`](docs/skills/).
 
-- **orfi-kit-git-conventions** — commit / branch / PR naming format.
-- **orfi-kit-guardrails** — always-active behavioral constraints (honesty, safe VCS, clarity).
-- **orfi-kit-scrum-poker** — Fibonacci-estimate a Jira ticket via the Atlassian MCP server.
-- **orfi-kit-xml-docs** — enforce client-neutral C# XML documentation.
+### Skills (always-on or auto-triggered)
 
-### Commands (Claude Code / OpenCode) — also Copilot slash commands
+Claude Code / OpenCode skills (Copilot ships these as slash commands).
 
-- **orfi-kit-enforce-guardrails** — re-assert the guardrails when behavior drifts.
-- **orfi-kit-commit** — assemble and write a conventional commit.
-- **orfi-kit-code-review** — structured review of the current diff.
-- **orfi-kit-load-state** / **orfi-kit-persist-state** — load / save session context.
-- **orfi-kit-run-unit-tests-phase** / **orfi-kit-run-integration-tests-phase** /
-  **orfi-kit-run-codegraph-phase** — run the respective test phase.
-- **orfi-kit-sync-branch** / **orfi-kit-sync-master** — keep a feature branch synced with its parent epic.
+| Capability | What it does | Trigger | Requires |
+| --- | --- | --- | --- |
+| [orfi-kit-guardrails](docs/skills/orfi-kit-guardrails.md) | Always-on behavioral constraints enforcing honesty, real test verification, safe version control, and clear communication. | Always active (not user-invocable) | — |
+| [orfi-kit-git-conventions](docs/skills/orfi-kit-git-conventions.md) | Required commit / branch / PR formats (typed verbs, optional ticket IDs) plus the epic/story branching + master→epic→feature sync workflow. | Auto-triggers on any git commit / branch / PR operation | A ticket ID when one exists; for epic work: an `origin` remote and `epic/*` + `feature/*` branches |
+| [orfi-kit-scrum-poker](docs/skills/orfi-kit-scrum-poker.md) | Estimates a Jira ticket on the Fibonacci scale (1/2/3/5/8/?) with calibration and reasoning, then writes the points back after you confirm. | Auto-triggers when you ask to estimate / size a Jira ticket | Atlassian MCP server with access to your Jira instance |
+| [orfi-kit-xml-docs](docs/skills/orfi-kit-xml-docs.md) | Enforces formal `///` XML doc comments on every public, protected, and static C# member. | Auto-triggers when writing / editing C# XML doc comments | A C# project; `pwsh` for the checker |
 
-### Hook (Claude Code)
+### Commands (you invoke them)
 
-- **orfi-kit-enforce-sync.sh** — a PreToolUse/Bash hook that **blocks `git push`** when a
-  `feature/*` branch is out of sync with its parent epic. Pairs with `orfi-kit-sync-branch`.
-  Deeper docs: `claude/commands/orfi-kit-sync-branch.README.md`.
+Claude Code / OpenCode commands — also available as Copilot slash commands.
 
-### Extension (Copilot CLI)
+| Capability | What it does | Invoke | Requires |
+| --- | --- | --- | --- |
+| [orfi-kit-commit](docs/skills/orfi-kit-commit.md) | Commit current changes with messages auto-formatted to orfi-kit's git conventions. | `/orfi-kit-commit` | A ticket ID if one applies (you're prompted; omitted if none) |
+| [orfi-kit-code-review](docs/skills/orfi-kit-code-review.md) | Read-only, file-by-file review of the codebase, optionally scoped to BUGS / SECURITY / PERFORMANCE. | `/orfi-kit-code-review` | — |
+| [orfi-kit-enforce-guardrails](docs/skills/orfi-kit-enforce-guardrails.md) | Re-asserts all operational guardrails to snap behavior back into compliance when it drifts. | `/orfi-kit-enforce-guardrails` | — |
+| [orfi-kit-load-state](docs/skills/orfi-kit-load-state.md) | Restores a prior session by reading its `CLAUDE-SESSION-STATE.md` handoff before any other work. | `/orfi-kit-load-state` | A `CLAUDE-SESSION-STATE.md` written by a prior session |
+| [orfi-kit-persist-state](docs/skills/orfi-kit-persist-state.md) | Writes a session handoff file so you can clear context and resume work later. | `/orfi-kit-persist-state` | A worktree alongside a `helper_files` directory |
+| [orfi-kit-run-unit-tests-phase](docs/skills/orfi-kit-run-unit-tests-phase.md) | Runs unit tests for one GSD phase (or all), logging parsed pass/fail/skip summaries. | `/orfi-kit-run-unit-tests-phase` | A .NET project using `dotnet test` |
+| [orfi-kit-run-integration-tests-phase](docs/skills/orfi-kit-run-integration-tests-phase.md) | Runs integration tests for one GSD phase (or all), logging parsed pass/fail/skip summaries. | `/orfi-kit-run-integration-tests-phase` | A .NET project; repo root for a `.tests/` dir |
+| [orfi-kit-run-codegraph-phase](docs/skills/orfi-kit-run-codegraph-phase.md) | Runs codegraph for a single GSD phase, identified by a phase-number argument. | `/orfi-kit-run-codegraph-phase` | — |
+| [orfi-kit-sync-branch](docs/skills/orfi-kit-sync-branch.md) | Syncs a `feature/*` branch through `origin/master → epic/* → feature/*` before push, auto-detecting merge vs rebase. | `/orfi-kit-sync-branch` | Current `feature/*` branch; `origin` remote; `feature/*` + `epic/*` naming |
+| [orfi-kit-sync-master](docs/skills/orfi-kit-sync-master.md) | Rebases the current branch on `origin/master`, resolves conflicts, and force-pushes with `--force-with-lease` for linear history. | `/orfi-kit-sync-master` | An `origin/master`; a branch with a remote tracking branch |
 
-- **orfi-kit-guardrails** (`extension.mjs`) — a Copilot SDK session extension that injects the
-  guardrails as always-active context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`.
+### Hook & extension (passive)
+
+| Capability | What it does | Surface | Requires |
+| --- | --- | --- | --- |
+| [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from a `feature/*` branch until it's rebased on its parent `epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | A `feature/*` branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
+| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
 

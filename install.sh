@@ -60,8 +60,8 @@ COPILOT_SKILL_NAMES=(
   orfi-kit-xml-docs
 )
 
-# The 10 command files (Claude Code / OpenCode only). NOTE: the .README.md
-# companion is deliberately NOT listed — it is repo docs, not a runtime command.
+# The 10 command files (Claude Code / OpenCode only). Per-capability docs live
+# in docs/skills/ (repo docs, not runtime); the installer copies only these.
 COMMAND_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
   orfi-kit-load-state orfi-kit-persist-state orfi-kit-run-codegraph-phase
