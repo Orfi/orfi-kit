@@ -78,6 +78,25 @@ Orchestrator / review role: scan every modified `.cs` file for members missing `
 public async Task<CustomerRecord?> FindAsync(string tenantId, string recordId);
 ```
 
+## The check script
+
+orfi-kit ships the checker the skill runs, in two forms — run either manually or from CI:
+
+- `scripts/check-xml-docs.ps1` (PowerShell)
+- `scripts/check-xml-docs.sh` (Linux/bash port — behavioural twin)
+
+Both take the same modes and exit `0` (clean) / `1` (violations found):
+
+```bash
+scripts/check-xml-docs.sh --changed                 # .cs changed since HEAD + staged
+scripts/check-xml-docs.sh --staged                  # .cs staged in git
+scripts/check-xml-docs.sh --files src/Foo.cs        # explicit file list
+# PowerShell equivalent:
+pwsh scripts/check-xml-docs.ps1 -Changed
+```
+
+Copy the script into your C# project's `scripts/` directory (orfi-kit does not auto-place it — it's project tooling, not a user-global skill). The `setup-hooks.ps1` / `.githooks/pre-commit` git-hook wiring the skill describes is part of a larger epic and is not shipped here yet.
+
 ## Notes
 
 - The repo ships `.githooks/pre-commit`, which runs the check script on staged `.cs` files on every `git commit` and blocks the commit if violations are found. Run `pwsh scripts/setup-hooks.ps1` once per clone to wire it up; bypass with `git commit --no-verify` in exceptional cases only.
