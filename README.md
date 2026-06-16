@@ -24,6 +24,7 @@ Claude Code / OpenCode skills (Copilot ships these as slash commands).
 | [orfi-kit-git-conventions](docs/skills/orfi-kit-git-conventions.md) | Required commit / branch / PR formats (typed verbs, optional ticket IDs) plus the epic/story branching + master→epic→feature sync workflow. | Auto-triggers on any git commit / branch / PR operation | A ticket ID when one exists; for epic work: an `origin` remote and `epic/*` + `feature/*` branches |
 | [orfi-kit-scrum-poker](docs/skills/orfi-kit-scrum-poker.md) | Estimates a Jira ticket on the Fibonacci scale (1/2/3/5/8/?) with calibration and reasoning, then writes the points back after you confirm. | Auto-triggers when you ask to estimate / size a Jira ticket | Atlassian MCP server with access to your Jira instance |
 | [orfi-kit-xml-docs](docs/skills/orfi-kit-xml-docs.md) | Enforces formal `///` XML doc comments on every public, protected, and static C# member. | Auto-triggers when writing / editing C# XML doc comments | A C# project; `pwsh` for the checker |
+| [orfi-kit-doxygen-docs](docs/skills/orfi-kit-doxygen-docs.md) | Enforces Doxygen comments on every exposed (public / protected / static) declaration in C++ headers; follows the file's existing `/**` or `///` style. | Auto-triggers when writing / editing C++ Doxygen comments | A C++ project; `pwsh` or bash for the checker |
 
 ### Commands (you invoke them)
 

@@ -15,7 +15,7 @@
 #
 # Claude Code + OpenCode share one skill source (claude/skills) and the 10
 # command files (claude/commands). Copilot uses its OWN source (copilot/skills,
-# 14 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
+# 15 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
 # skill IS its slash command).
 #
 # Conflict rule (OpenCode reads BOTH ~/.claude/skills and ~/.config/opencode/skills):
@@ -47,17 +47,17 @@ COPILOT_EXTS="$HOME/.copilot/extensions"        # verified from Copilot CLI bund
 HOOK_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-sync.sh"
 HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 
-# The 4 Claude skill dirs (shared by Claude Code + OpenCode).
-CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs)
+# The 5 Claude skill dirs (shared by Claude Code + OpenCode).
+CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs)
 
-# The 14 Copilot skill dirs.
+# The 15 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
   orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-load-state
   orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-scrum-poker orfi-kit-sync-branch orfi-kit-sync-master
-  orfi-kit-xml-docs
+  orfi-kit-xml-docs orfi-kit-doxygen-docs
 )
 
 # The 10 command files (Claude Code / OpenCode only). Per-capability docs live

@@ -49,7 +49,7 @@ $CopilotExts    = Join-Path $Home_ '.copilot/extensions'   # verified from Copil
 $HookDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-sync.sh'
 $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
 
-$ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs')
+$ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs')
 
 $CopilotSkillNames = @(
   'orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
@@ -57,7 +57,7 @@ $CopilotSkillNames = @(
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
   'orfi-kit-scrum-poker','orfi-kit-sync-branch','orfi-kit-sync-master',
-  'orfi-kit-xml-docs'
+  'orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
 # 10 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
