@@ -17,12 +17,12 @@ Run the slash command:
 ## Prerequisites
 
 - The **helper-files root** must be configured for the repo (run `/orfi-kit-set-helper-files-root`; if it isn't set, this command configures it on the spot). The root is recorded in the untracked `.orfi-kits/helper-files-root` pointer.
-- A `CLAUDE-SESSION-STATE.md` file must exist at `<helper-files-root>\CLAUDE-SESSION-STATE.md`. Typically this is written by a prior session.
+- A `CLAUDE-SESSION-STATE.md` file must exist at `<helper-files-root>\orfi-kits\CLAUDE-SESSION-STATE.md`. Typically this is written by a prior session.
 
 ## Behavior / rules
 
 - Resolves the helper-files root from `.orfi-kits/helper-files-root` (configuring it first if missing — no fallback to any default).
-- Reads `<helper-files-root>\CLAUDE-SESSION-STATE.md`.
+- Reads `<helper-files-root>\orfi-kits\CLAUDE-SESSION-STATE.md`.
 - Reads the file **in full before doing anything else** — loading state is the first action of the session, ahead of any other work.
 
 ## Notes

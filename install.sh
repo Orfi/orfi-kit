@@ -50,21 +50,21 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 # The 5 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs)
 
-# The 16 Copilot skill dirs.
+# The 17 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
-  orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-load-state
+  orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-init orfi-kit-load-state
   orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-sync-branch
   orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
 )
 
-# The 11 command files (Claude Code / OpenCode only). Per-capability docs live
+# The 12 command files (Claude Code / OpenCode only). Per-capability docs live
 # in docs/skills/ (repo docs, not runtime); the installer copies only these.
 COMMAND_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
-  orfi-kit-load-state orfi-kit-persist-state orfi-kit-run-codegraph-phase
+  orfi-kit-init orfi-kit-load-state orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-set-helper-files-root orfi-kit-sync-branch orfi-kit-sync-master
 )
