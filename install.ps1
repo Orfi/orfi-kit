@@ -56,16 +56,16 @@ $CopilotSkillNames = @(
   'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-load-state',
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
-  'orfi-kit-scrum-poker','orfi-kit-sync-branch','orfi-kit-sync-master',
-  'orfi-kit-xml-docs','orfi-kit-doxygen-docs'
+  'orfi-kit-scrum-poker','orfi-kit-set-helper-files-root','orfi-kit-sync-branch',
+  'orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
-# 10 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
+# 11 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
 $CommandNames = @(
   'orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
   'orfi-kit-load-state','orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
-  'orfi-kit-sync-branch','orfi-kit-sync-master'
+  'orfi-kit-set-helper-files-root','orfi-kit-sync-branch','orfi-kit-sync-master'
 )
 
 # --- helpers -----------------------------------------------------------------

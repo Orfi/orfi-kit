@@ -16,13 +16,16 @@ Run the slash command:
 
 ## Prerequisites
 
-- A `CLAUDE-SESSION-STATE.md` file must exist at `../helper_files/CLAUDE-SESSION-STATE.md` (a `helper_files` directory sitting alongside the current worktree). Typically this is written by a prior session.
+- The **helper-files root** must be configured for the repo (run `/orfi-kit-set-helper-files-root`; if it isn't set, this command configures it on the spot). The root is recorded in the untracked `.orfi-kits/helper-files-root` pointer.
+- A `CLAUDE-SESSION-STATE.md` file must exist at `<helper-files-root>\CLAUDE-SESSION-STATE.md`. Typically this is written by a prior session.
 
 ## Behavior / rules
 
-- Reads `../helper_files/CLAUDE-SESSION-STATE.md`, resolved relative to the current worktree (the worktree sits alongside `helper_files`).
+- Resolves the helper-files root from `.orfi-kits/helper-files-root` (configuring it first if missing — no fallback to any default).
+- Reads `<helper-files-root>\CLAUDE-SESSION-STATE.md`.
 - Reads the file **in full before doing anything else** — loading state is the first action of the session, ahead of any other work.
 
 ## Notes
 
 - Pairs with `/orfi-kit-persist-state`, which writes the session state that this command reads back. Run persist-state at the end of a session and load-state at the start of the next.
+- The root is set with `/orfi-kit-set-helper-files-root` and is shared with orfi-ae-kit (one pointer per repo).

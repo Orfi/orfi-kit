@@ -3,4 +3,6 @@ name: orfi-kit-persist-state
 description: persist state between sessions. 
 ---
 
-Persist current session state to `C:\repos\helper_files\COPILOT-SESSION-STATE.md` so work can be resumed after clearing context. Be explicit, factual, and include blockers or unresolved risks.
+First resolve the **helper-files root**: read `.orfi-kits/helper-files-root` in the current repo. If it is missing, configure it now via `/orfi-kit-set-helper-files-root` (ask the user for the path, write the pointer), then continue. There is no default path — do not fall back to any hard-coded location.
+
+Persist current session state to `<helper-files-root>\COPILOT-SESSION-STATE.md` so work can be resumed after clearing context. Be explicit, factual, and include blockers or unresolved risks.

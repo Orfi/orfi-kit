@@ -3,4 +3,6 @@ name: orfi-kit-load-state
 description: load state between sessions. 
 ---
 
-Read the file `../helper_files/CLAUDE-SESSION-STATE.md` (relative to the current worktree, which sits alongside `helper_files` under `C:\repos\`). This is the Claude Code session handoff file — read it in full before doing anything else.
+First resolve the **helper-files root**: read `.orfi-kits/helper-files-root` in the current repo. If it is missing, configure it now via `/orfi-kit-set-helper-files-root` (ask the user for the path, write the pointer), then continue. There is no default path — do not fall back to any hard-coded or relative location.
+
+Read the file `<helper-files-root>\CLAUDE-SESSION-STATE.md`. This is the Claude Code session handoff file — read it in full before doing anything else.
