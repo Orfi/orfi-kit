@@ -107,7 +107,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
 
 ### Carrying gitignored state into a new worktree
 
-Tracked files (`.planning/`, `helper_files/SESSION-STATE.md`, tracked ADRs) arrive automatically via the branch checkout. Gitignored files do NOT. For shared local state (credentials, swarm memory, LOs, golden-file fixtures, `.env`), symlink from the new story worktree to the epic worktree so there is one source of truth.
+Tracked files (`.planning/`, `.trackbed/`, `.orfi-kits/`, tracked ADRs) arrive automatically via the branch checkout. Gitignored local state does NOT. For any shared gitignored state, symlink from the new story worktree to the epic worktree so there is one source of truth.
 
 ```bash
 # From the new story worktree
@@ -116,12 +116,12 @@ cd C:/repos/wt-{story-name}
 # Windows — use `mklink /J` for directories (junction, no admin needed)
 # and `mklink /H` for files. Use `mklink /D` only if Developer Mode or admin is available.
 cmd //c "mklink /J .swarm C:\repos\wt-{epic-worktree}\.swarm"
-cmd //c "mklink /H helper_files\golden-file-cred.md C:\repos\wt-{epic-worktree}\helper_files\golden-file-cred.md"
 ```
 
 Rules:
 - Symlink ONLY gitignored items. Never symlink tracked files or directories — git will see a symlink where content used to be and corrupt the branch.
-- Typical symlink targets for this project: `.swarm/`, `helper_files/golden-file-cred.md`, `helper_files/qa-legacy-db-cred.md`, `helper_files/golden-files/`, any local `.env` file.
+- Typical symlink targets for this project: `.swarm/`, any local `.env` file.
+- The kit pointer `.orfi-kits/` is **tracked**, so it propagates via the branch checkout — do NOT symlink it.
 - Reads and writes through the symlink transparently land in the epic worktree's copy — all story worktrees see the same live state.
 - When pruning the story worktree at end-of-story, remove the symlinks (or let `git worktree remove` clean them up); the underlying state in the epic worktree is untouched.
 

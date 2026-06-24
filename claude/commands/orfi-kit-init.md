@@ -6,10 +6,10 @@ description: Bootstrap the per-repo helper-files root and create placeholder ses
 You are bootstrapping orfi-kit for the current repo. This is a **create-if-absent** operation — it never overwrites existing configuration or files. Only `/orfi-kit-set-helper-files-root` may change an existing path.
 
 **Step 1 — ensure the helper-files root is configured.**
-Read `.orfi-kits/helper-files-root` in the current repo. If it is missing, run the config routine (ask the user for the absolute path to the helper-files root, create `.orfi-kits/`, write `.orfi-kits/.gitignore` containing a single `*`, write `.orfi-kits/helper-files-root` with the path, and `git rm --cached -r .orfi-kits/` if it was ever tracked). Define `<kit-root>` = `<helper-files-root>\orfi-kits`.
+Read `.orfi-kits/helper-files-root` in the current repo. If it is missing, run the config routine (ask the user for the absolute path to the helper-files root, create `.orfi-kits/`, write `.orfi-kits/helper-files-root` with the path). `.orfi-kits/` is tracked — do not gitignore it. Define `<kit-root>` = `<helper-files-root>\orfi-kits`.
 
 **Step 2 — check whether already initialized.**
-If `<kit-root>` exists and already contains `CLAUDE-SESSION-STATE.md` and `ONBOARDING.md`, then this repo is already initialized: tell the user so and **stop** — do not touch anything. (This is the Claude command, so it owns `CLAUDE-SESSION-STATE.md`; the Copilot skill of the same name owns `COPILOT-SESSION-STATE.md`.)
+If `<kit-root>` exists and already contains `CLAUDE-SESSION-STATE.md` and `ONBOARDING.md`, then this repo is already initialized: tell the user so and **stop** — do not touch anything.
 
 **Step 3 — create only the missing placeholder files** under `<kit-root>` (create the `<kit-root>` folder if needed). Never overwrite a file that already exists.
 

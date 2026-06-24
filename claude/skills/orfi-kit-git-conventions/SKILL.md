@@ -126,7 +126,7 @@ cmd //c "mklink /H <in-tree-file> <absolute-path-to-source-file>"
 
 Rules:
 - First decide which kind it is. Only kind 2 needs action. Most shared project state is kind 1 — leave it alone.
-- Symlink ONLY gitignored items. Never symlink a tracked file or directory — git will see a symlink where content belongs and corrupt the branch.
+- Symlink ONLY gitignored items. Never symlink a tracked file or directory — git will see a symlink where content belongs and corrupt the branch. (The kit pointer `.orfi-kits/` is tracked, so it propagates via the branch checkout — never symlink it.)
 - Reads/writes through the symlink land in the shared copy, so all worktrees see the same live state.
 - When pruning the worktree at end-of-story, the symlinks go with it; the underlying shared copy is untouched.
 
