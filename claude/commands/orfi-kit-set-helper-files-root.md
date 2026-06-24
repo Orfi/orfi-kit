@@ -11,7 +11,7 @@ The root is recorded in a small pointer file inside the current repo: `.orfi-kit
 
 Run the **config routine** below. It is idempotent — it creates the configuration if absent and overwrites the path if it already exists.
 
-1. **Determine the path.** Use the path from the arguments below. If no argument is given, ask the user for the absolute path to the helper-files root, then wait for their answer. Do not guess or fall back to any previous default.
+1. **Determine the path.** Use the path from the arguments below. If no argument is given, STOP and ask the user for the absolute path to the helper-files root (never search for, infer, or guess a location; no default), then wait for their answer. Do not guess or fall back to any previous default.
 2. **Create the config folder.** Create `.orfi-kits/` in the current repo root if it does not exist.
 3. **Write the pointer.** Overwrite `.orfi-kits/helper-files-root` with exactly the path (one line, no quotes, no trailing blank lines).
 4. **Confirm.** Report in one line: the resolved helper-files root and that the pointer was written to `.orfi-kits/helper-files-root`.
