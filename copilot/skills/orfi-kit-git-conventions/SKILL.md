@@ -88,7 +88,7 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
 
 ### Worktree conventions
 
-- Worktree path: `C:\repos\wt-{short-name}` (e.g. `C:\repos\wt-60446-public-api` for an epic, `C:\repos\wt-61823-folder-crud` for a story).
+- Worktree path: `C:\repos\wt-{short-name}` — derive `{short-name}` from the ticket ID + a brief slug (one for the epic worktree, one per story worktree).
 - One worktree per branch. Never share a worktree across stories.
 - After a story is merged, prune the worktree AND delete the branch (local + remote).
 
@@ -99,31 +99,38 @@ Work NEVER happens directly on `master` or the epic branch's worktree. It happen
    ```bash
    cd C:/repos/{main-repo}
    git fetch origin
-   git worktree add -b feature/ORFI-61823-folder-crud C:/repos/wt-61823-folder-crud origin/epic/ORFI-60446-public-api
+   git worktree add -b feature/{STORY-ID}-{name} C:/repos/wt-{story-short-name} origin/epic/{EPIC-ID}-{name}
    ```
 3. `cd` into the new worktree. All subsequent work happens there.
-4. Carry local gitignored state from the epic worktree (see below).
-5. Every commit on this branch references the story ticket ID per the commit format above.
+4. **Fix the upstream.** `git worktree add -b <branch> <path> origin/epic/...` makes git auto-set the new branch's upstream to **`origin/epic/...`** (it defaults the upstream to the start-point). That is WRONG for this model — a feature branch's upstream must be its OWN remote (`origin/feature/{STORY-ID}-{name}`), not the epic. Left as-is, a bare `git push`/`git pull`/`git status` resolves against the epic. Fix it immediately, one of two ways:
+   - `git branch --unset-upstream` now, then `git push -u origin feature/{STORY-ID}-{name}` on the first push (sets the correct upstream), **or**
+   - just push early with `git push -u origin feature/{STORY-ID}-{name}`, which overwrites the bad upstream with the correct one.
+   The feature↔epic relationship is a **sync operation you run** (the cascade below), NOT the branch's tracking config.
+5. Carry local shared state into the new worktree if needed (see below).
+6. Every commit on this branch references the story ticket ID per the commit format above.
 
-### Carrying gitignored state into a new worktree
+### Carrying local shared state into a new worktree
 
-Tracked files (`.planning/`, `.trackbed/`, `.orfi-kits/`, tracked ADRs) arrive automatically via the branch checkout. Gitignored local state does NOT. For any shared gitignored state, symlink from the new story worktree to the epic worktree so there is one source of truth.
+Tracked files arrive automatically via the branch checkout. Two kinds of state do NOT, and they are handled differently — distinguish them before doing anything:
+
+1. **State that lives OUTSIDE the repo, at a fixed absolute path** (e.g. a sibling directory holding credentials, fixtures, or onboarding docs that was deliberately kept out of git). Every worktree already reaches it at the same absolute path — **do nothing**. Do not symlink it; there is nothing to carry. (If code or tests reference it, they use the absolute path or a copy step, which is identical across worktrees.)
+
+2. **Gitignored state that lives INSIDE the worktree tree** (e.g. a local `.env`, a tool's working DB, machine-local caches). This does not come with the checkout. If it must be shared across worktrees rather than regenerated per worktree, symlink it from the new worktree to a single source-of-truth copy:
 
 ```bash
-# From the new story worktree
-cd C:/repos/wt-{story-name}
-
-# Windows — use `mklink /J` for directories (junction, no admin needed)
-# and `mklink /H` for files. Use `mklink /D` only if Developer Mode or admin is available.
-cmd //c "mklink /J .swarm C:\repos\wt-{epic-worktree}\.swarm"
+# From the new worktree (paths are illustrative — substitute your own)
+# Windows — `mklink /J` for directories (junction, no admin), `mklink /H` for files.
+cmd //c "mklink /J <in-tree-dir> <absolute-path-to-source-copy>"
+cmd //c "mklink /H <in-tree-file> <absolute-path-to-source-file>"
 ```
 
 Rules:
-- Symlink ONLY gitignored items. Never symlink tracked files or directories — git will see a symlink where content used to be and corrupt the branch.
-- Typical symlink targets for this project: `.swarm/`, any local `.env` file.
-- The kit pointer `.orfi-kits/` is **tracked**, so it propagates via the branch checkout — do NOT symlink it.
-- Reads and writes through the symlink transparently land in the epic worktree's copy — all story worktrees see the same live state.
-- When pruning the story worktree at end-of-story, remove the symlinks (or let `git worktree remove` clean them up); the underlying state in the epic worktree is untouched.
+- First decide which kind it is. Only kind 2 needs action. Most shared project state is kind 1 — leave it alone.
+- Symlink ONLY gitignored items. Never symlink a tracked file or directory — git will see a symlink where content belongs and corrupt the branch. (The kit pointer `.orfi-kits/` is tracked, so it propagates via the branch checkout — never symlink it.)
+- Reads/writes through the symlink land in the shared copy, so all worktrees see the same live state.
+- When pruning the worktree at end-of-story, the symlinks go with it; the underlying shared copy is untouched.
+
+> Determine the specific paths and which items are kind 1 vs kind 2 from the project's own onboarding/context docs — do not hardcode them here.
 
 ### Sync cadence while working on a story
 
@@ -138,14 +145,16 @@ Two-step cascade: **master → epic → feature**. Run this:
 cd C:/repos/wt-{epic-worktree}
 git fetch origin
 git rebase origin/master
-git push origin epic/ORFI-60446-public-api
+git push origin epic/{EPIC-ID}-{name}
 
 # Step 2: pull epic into the feature branch (from the story worktree)
 cd C:/repos/wt-{story-worktree}
 git fetch origin
-git rebase origin/epic/ORFI-60446-public-api
-git push --force-with-lease origin feature/ORFI-61823-folder-crud
+git rebase origin/epic/{EPIC-ID}-{name}
+git push --force-with-lease origin feature/{STORY-ID}-{name}
 ```
+
+> **Project note:** some epics override the master→epic step to use **merge, not rebase** (e.g. long-lived epics where rebasing hundreds of commits is impractical, or where the epic must never be force-pushed). Follow the project's onboarding/context docs when they specify a different epic-sync policy; the rebase shown here is the default for ordinary feature branches.
 
 Never force-push the epic branch or master. `--force-with-lease` is only acceptable on a feature branch that is not yet merged and has no other collaborators.
 
@@ -158,8 +167,8 @@ Never force-push the epic branch or master. `--force-with-lease` is only accepta
    ```bash
    cd C:/repos/{main-repo}
    git worktree remove C:/repos/wt-{story-worktree}
-   git branch -D feature/ORFI-61823-folder-crud
-   git push origin --delete feature/ORFI-61823-folder-crud
+   git branch -D feature/{STORY-ID}-{name}
+   git push origin --delete feature/{STORY-ID}-{name}
    ```
 
 ### Closing the epic (epic → master)

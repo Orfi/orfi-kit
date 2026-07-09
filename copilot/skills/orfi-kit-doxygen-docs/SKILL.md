@@ -50,7 +50,7 @@ Do not wait to be asked. Do not wait for the hook. Apply these rules the moment 
 
 ## Check script (repo tooling)
 
-The repo ships `scripts/check-doxygen-docs.ps1` — a deterministic scanner that exits `1` on violations and `0` when clean. It scans header files only and is style-agnostic (accepts either `/** */` or `///`).
+The repo ships `scripts/check-doxygen-docs.ps1` and `scripts/check-doxygen-docs.sh` — deterministic scanners that exit `1` on violations and `0` when clean. They scan header files only and are style-agnostic (accept either `/** */` or `///`).
 
 ```powershell
 # Scan staged files only (used by pre-commit hook)
@@ -61,6 +61,13 @@ pwsh scripts/check-doxygen-docs.ps1 -Changed
 
 # Scan specific files
 pwsh scripts/check-doxygen-docs.ps1 -Files @("include/customer/CustomerRecordRepository.hpp")
+```
+
+```bash
+# bash twin
+bash scripts/check-doxygen-docs.sh --staged
+bash scripts/check-doxygen-docs.sh --changed
+bash scripts/check-doxygen-docs.sh --files path/to/Header.hpp
 ```
 
 ---
