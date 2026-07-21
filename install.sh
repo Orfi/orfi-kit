@@ -13,9 +13,9 @@
 #   ./install.sh --uninstall     remove an existing orfi-kit install
 #   ./install.sh --help          show this help
 #
-# Claude Code + OpenCode share one skill source (claude/skills) and the 10
+# Claude Code + OpenCode share one skill source (claude/skills) and the
 # command files (claude/commands). Copilot uses its OWN source (copilot/skills,
-# 15 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
+# 19 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
 # skill IS its slash command).
 #
 # Conflict rule (OpenCode reads BOTH ~/.claude/skills and ~/.config/opencode/skills):
@@ -50,23 +50,23 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 # The 5 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs)
 
-# The 18 Copilot skill dirs.
+# The 19 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
   orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
   orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-init orfi-kit-load-state
   orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
-  orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-sync-branch
-  orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
+  orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-standup
+  orfi-kit-sync-branch orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
 )
 
-# The 13 command files (Claude Code / OpenCode only). Per-capability docs live
+# The 14 command files (Claude Code / OpenCode only). Per-capability docs live
 # in docs/skills/ (repo docs, not runtime); the installer copies only these.
 COMMAND_NAMES=(
   orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
   orfi-kit-init orfi-kit-load-state orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
-  orfi-kit-set-helper-files-root orfi-kit-sync-branch orfi-kit-sync-master
+  orfi-kit-set-helper-files-root orfi-kit-standup orfi-kit-sync-branch orfi-kit-sync-master
 )
 
 LINK=0
