@@ -1,7 +1,8 @@
 #!/bin/bash
-# ENFORCEMENT HOOK: Block pushes from a feature branch not synced with its parent epic
+# ENFORCEMENT HOOK: Block pushes from an epic-derived working branch not synced with its parent epic
 # Scope   : Global (~/.claude/hooks/) — applies to all projects
-# Trigger : PreToolUse on Bash (filtered to git push on feature/* branches)
+# Trigger : PreToolUse on Bash (filtered to git push on epic-derived working
+#           branches — any prefix except master/epic/*)
 # Exit non-zero = BLOCK the push
 #
 # Sync order (Rule R7 extension for epic branch hierarchies):
@@ -25,10 +26,13 @@ WORKTREE="${CLAUDE_PROJECT_DIR:-$PWD}"
 # Determine the current branch of this worktree
 CURRENT_BRANCH=$(git -C "$WORKTREE" branch --show-current 2>/dev/null)
 
-# Only apply to feature/* branches
+# Enforce on any epic-derived working branch (feature/, fix/, feat/, chore/,
+# bugfix/, hotfix/, …) per orfi-kit-git-conventions. Never enforce on master or
+# epic/* — those are not epic-derived working branches. Also skip when the
+# branch is empty (detached HEAD).
 case "$CURRENT_BRANCH" in
-  feature/*) ;;
-  *) exit 0 ;;
+  ""|master|epic/*) exit 0 ;;
+  *) ;;
 esac
 
 # --- Resolve parent epic branch ---
@@ -78,9 +82,9 @@ git -C "$WORKTREE" fetch origin "$EPIC_BRANCH" --quiet 2>/dev/null || true
 
 # --- Check: epic tip must be an ancestor of feature HEAD ---
 if ! git -C "$WORKTREE" merge-base --is-ancestor "origin/$EPIC_BRANCH" HEAD 2>/dev/null; then
-  echo "BLOCKED: Feature branch '$CURRENT_BRANCH' is out of sync with '$EPIC_BRANCH'.
+  echo "BLOCKED: Working branch '$CURRENT_BRANCH' is out of sync with '$EPIC_BRANCH'.
 
-The epic branch has been updated (rebased on master) and your feature branch
+The epic branch has been updated (rebased on master) and your working branch
 does not include those changes.
 
 Run /orfi-kit-sync-branch to fix this:

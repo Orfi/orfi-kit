@@ -6,6 +6,21 @@ disable-model-invocation: true
 
 # Sync Master Workflow (Copilot version)
 
+## 0. Verify branch eligibility
+
+This skill rebases directly on `origin/master` and force-pushes — safe only for a standalone branch, dangerous for epic work.
+
+```powershell
+$branch = git branch --show-current
+if ($branch -eq 'master' -or $branch -match '^epic/') { throw "ABORTED: /orfi-kit-sync-master rebases on master and force-pushes; it must not run on master or epic/* (current: $branch)" }
+```
+
+If the branch is derived from an epic (its parent is an `epic/*` branch — e.g. a `feature/`, `fix/`, `chore/` branch under an active epic), STOP and steer the user instead:
+
+> This branch derives from an epic. Rebasing directly on origin/master would skip the epic and diverge from it. Use /orfi-kit-sync-branch (master -> epic -> this branch) instead of /orfi-kit-sync-master.
+
+Only continue for a standalone branch that legitimately rebases directly on master (no epic parent). If unsure whether an epic parent exists, ask the user.
+
 ## 1. Check working tree
 
 ```powershell

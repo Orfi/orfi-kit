@@ -22,12 +22,12 @@ Determine the branch for the current worktree:
 git branch --show-current
 ```
 
-The branch MUST match `feature/*`. If it does not, abort immediately:
+The branch MUST be an epic-derived working branch — any prefix is valid (`feature/`, `fix/`, `feat/`, `chore/`, `bugfix/`, `hotfix/`, etc.), matching the branch types allowed by `/orfi-kit-git-conventions`. It MUST NOT be `master` or an `epic/*` branch. If it is `master` or `epic/*`, abort immediately:
 
-> ABORTED: /orfi-kit-sync-branch only runs on feature/* branches. Current branch: {branch}
-> Switch to your feature branch and retry.
+> ABORTED: /orfi-kit-sync-branch only runs on epic-derived working branches (feature/*, fix/*, chore/*, …), not on master or epic/*. Current branch: {branch}
+> Switch to your working branch and retry.
 
-Record `FEATURE_BRANCH` and `FEATURE_WORKTREE` (the current directory) for use in later steps.
+Record `FEATURE_BRANCH` and `FEATURE_WORKTREE` (the current directory) for use in later steps. `FEATURE_BRANCH` refers to the current working branch regardless of its prefix.
 
 ## Step 2: Resolve the parent epic branch
 

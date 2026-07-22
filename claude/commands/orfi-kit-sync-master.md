@@ -10,6 +10,24 @@ This skill commits local changes, rebases on the latest master, and pushes. The 
 
 ## Steps
 
+### 0. Verify branch eligibility
+
+Determine the current branch:
+
+```bash
+git branch --show-current
+```
+
+- **Abort** if the branch is `master` or matches `epic/*` — this skill rebases-and-force-pushes, which must never touch a protected or epic branch:
+
+  > ABORTED: /orfi-kit-sync-master rebases on master and force-pushes; it must not run on master or epic/* branches. Current branch: {branch}
+
+- **If the branch is derived from an epic** (its parent is an `epic/*` branch, e.g. a `feature/`, `fix/`, `chore/` branch under an active epic), STOP and steer the user to the epic-aware skill instead:
+
+  > This branch derives from an epic. Rebasing directly on origin/master would skip the epic and diverge from it. Use /orfi-kit-sync-branch (master → epic → this branch) instead of /orfi-kit-sync-master.
+
+  Only continue past this step for a standalone branch that legitimately rebases directly on master (no epic parent). If unsure whether an epic parent exists, ask the user.
+
 ### 1. Check for uncommitted changes
 
 Run `git status` to see if there are staged or unstaged changes.

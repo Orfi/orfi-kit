@@ -7,15 +7,17 @@ disable-model-invocation: true
 # orfi-kit-sync-branch (Copilot version)
 
 Sync chain:
-`origin/master -> epic/* -> feature/*`
+`origin/master -> epic/* -> epic-derived working branch (any prefix)`
 
-Run from a `feature/*` branch.
+Run from an epic-derived working branch (any prefix).
 
-## 1. Verify current feature branch
+## 1. Verify current working branch
+
+The working branch may use any prefix allowed by `orfi-kit-git-conventions` (`feature/`, `fix/`, `feat/`, `chore/`, `bugfix/`, `hotfix/`, …). Abort only when it is `master` or an `epic/*` branch — this skill must never run on those.
 
 ```powershell
 $featureBranch = git branch --show-current
-if ($featureBranch -notmatch '^feature/') { throw "ABORTED: must run on feature/* (current: $featureBranch)" }
+if ($featureBranch -eq 'master' -or $featureBranch -match '^epic/') { throw "ABORTED: /orfi-kit-sync-branch runs on epic-derived working branches (feature/*, fix/*, chore/*, …), not on master or epic/* (current: $featureBranch)" }
 $featureWorktree = (Get-Location).Path
 ```
 

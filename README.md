@@ -44,14 +44,14 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-run-unit-tests-phase](docs/skills/orfi-kit-run-unit-tests-phase.md) | Runs unit tests for one GSD phase (or all), logging parsed pass/fail/skip summaries. | `/orfi-kit-run-unit-tests-phase` | A .NET project using `dotnet test` |
 | [orfi-kit-run-integration-tests-phase](docs/skills/orfi-kit-run-integration-tests-phase.md) | Runs integration tests for one GSD phase (or all), logging parsed pass/fail/skip summaries. | `/orfi-kit-run-integration-tests-phase` | A .NET project; repo root for a `.tests/` dir |
 | [orfi-kit-run-codegraph-phase](docs/skills/orfi-kit-run-codegraph-phase.md) | Runs codegraph for a single GSD phase, identified by a phase-number argument. | `/orfi-kit-run-codegraph-phase` | — |
-| [orfi-kit-sync-branch](docs/skills/orfi-kit-sync-branch.md) | Syncs a `feature/*` branch through `origin/master → epic/* → feature/*` before push, auto-detecting merge vs rebase. | `/orfi-kit-sync-branch` | Current `feature/*` branch; `origin` remote; `feature/*` + `epic/*` naming |
-| [orfi-kit-sync-master](docs/skills/orfi-kit-sync-master.md) | Rebases the current branch on `origin/master`, resolves conflicts, and force-pushes with `--force-with-lease` for linear history. | `/orfi-kit-sync-master` | An `origin/master`; a branch with a remote tracking branch |
+| [orfi-kit-sync-branch](docs/skills/orfi-kit-sync-branch.md) | Syncs an epic-derived working branch (any prefix) through `origin/master → epic/* → working branch` before push, auto-detecting merge vs rebase. | `/orfi-kit-sync-branch` | An epic-derived working branch (any prefix, not `master`/`epic/*`); `origin` remote; `epic/*` naming |
+| [orfi-kit-sync-master](docs/skills/orfi-kit-sync-master.md) | Rebases the current branch on `origin/master`, resolves conflicts, and force-pushes with `--force-with-lease` for linear history. Aborts on `master`/`epic/*` and steers epic-derived branches to `/orfi-kit-sync-branch`. | `/orfi-kit-sync-master` | A standalone branch (no epic parent); an `origin/master`; a remote tracking branch |
 
 ### Hook & extension (passive)
 
 | Capability | What it does | Surface | Requires |
 | --- | --- | --- | --- |
-| [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from a `feature/*` branch until it's rebased on its parent `epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | A `feature/*` branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
+| [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from an epic-derived working branch (any prefix) until it's rebased on its parent `epic/*`; ignores `master`/`epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | An epic-derived working branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
 | [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
