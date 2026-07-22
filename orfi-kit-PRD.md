@@ -71,16 +71,20 @@ Copy **exactly** these files/directories. Nothing more, nothing less.
 
 ### 3.1 Claude Code — commands (from `claude-tools/commands/`)
 
-Command files (installed to the runtime):
+Command files (installed to the runtime) — **14 files**:
 
+- `orfi-kit-cleanup-state.md`
 - `orfi-kit-code-review.md`
 - `orfi-kit-commit.md`
 - `orfi-kit-enforce-guardrails.md`
+- `orfi-kit-init.md`
 - `orfi-kit-load-state.md`
 - `orfi-kit-persist-state.md`
 - `orfi-kit-run-codegraph-phase.md`
 - `orfi-kit-run-integration-tests-phase.md`
 - `orfi-kit-run-unit-tests-phase.md`
+- `orfi-kit-set-helper-files-root.md`
+- `orfi-kit-standup.md`
 - `orfi-kit-sync-branch.md`
 - `orfi-kit-sync-master.md`
 
@@ -88,7 +92,7 @@ Companion documentation (repo docs — **NOT installed to the runtime**):
 
 - Per-capability docs live in `docs/skills/` (one `.md` per skill / command / hook / extension),
   not alongside the command files. The sync-branch deeper docs are
-  `docs/skills/orfi-kit-sync-branch.md`. The installer copies only the ten command files into
+  `docs/skills/orfi-kit-sync-branch.md`. The installer copies only the 14 command files into
   `~/.claude/commands/`; it never copies `docs/`.
 
 ### 3.2 Claude Code — skills (from `claude-tools/skills/`)
@@ -108,21 +112,25 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
 
 ### 3.4 Copilot — skills (from `copilot-tools/skills/`)
 
-**15 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
-command**, so the Claude *commands* become Copilot *skills*, giving 5 Claude skills + 10 Claude
-commands = 15 Copilot skills.)
+**19 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
+command**, so the Claude *commands* become Copilot *skills*, giving 5 Claude skills + 14 Claude
+commands = 19 Copilot skills.)
 
+- `orfi-kit-cleanup-state/`
 - `orfi-kit-code-review/`
 - `orfi-kit-commit/`
 - `orfi-kit-enforce-guardrails/`
 - `orfi-kit-git-conventions/`
 - `orfi-kit-guardrails/`
+- `orfi-kit-init/`
 - `orfi-kit-load-state/`
 - `orfi-kit-persist-state/`
 - `orfi-kit-run-codegraph-phase/`
 - `orfi-kit-run-integration-tests-phase/`
 - `orfi-kit-run-unit-tests-phase/`
 - `orfi-kit-scrum-poker/`
+- `orfi-kit-set-helper-files-root/`
+- `orfi-kit-standup/`
 - `orfi-kit-sync-branch/`
 - `orfi-kit-sync-master/`
 - `orfi-kit-xml-docs/`
@@ -151,11 +159,11 @@ commands = 15 Copilot skills.)
 ```
 orfi-kit/
   claude/
-    commands/   <- the 10 orfi-kit-*.md command files
+    commands/   <- the 14 orfi-kit-*.md command files
     skills/     <- the 5 orfi-kit-* Claude skill dirs
     hooks/      <- orfi-kit-enforce-sync.sh
   copilot/
-    skills/     <- the 15 orfi-kit-* Copilot skill dirs (Copilot's own copies)
+    skills/     <- the 19 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
   docs/
     skills/     <- one .md per capability (repo docs; never installed to a runtime)
@@ -191,7 +199,7 @@ extension) — there are **no runtime scripts** beyond the hook.
 > - `/mnt/BA707A64707A2773/code/trackbed/install.ps1`
 >
 > Adapt them: swap the `SKILLS` array, swap the command set (trackbed has one command; orfi-kit has
-> ten), and **add the two genuinely new capabilities** (hook + extension) called out below.
+> fourteen), and **add the two genuinely new capabilities** (hook + extension) called out below.
 
 ### 5.1 Interactive runtime selection
 
@@ -232,15 +240,15 @@ skills get **exactly ONE home per machine**:
 
 - **Claude Code + OpenCode share the SAME skill source** → `claude/skills` (the 5 Claude skill
   dirs). They also share the OpenCode conflict rule above.
-- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 15 skill dirs) and its own
+- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 19 skill dirs) and its own
   home `~/.copilot/skills`. Independent: **no command file** (the skill is its own slash command).
 
 ### 5.6 Commands (Claude Code / OpenCode only)
 
-Copy the **10** `orfi-kit-*.md` command files into the runtime's `commands/` dir
+Copy the **14** `orfi-kit-*.md` command files into the runtime's `commands/` dir
 (`~/.claude/commands/` and/or `~/.config/opencode/commands/`).
 
-> Make sure your copy loop targets the ten command files explicitly. Per-capability docs live in
+> Make sure your copy loop targets the 14 command files explicitly. Per-capability docs live in
 > `docs/skills/` and are never copied to a runtime.
 
 ### 5.7 NEW for this kit (not in trackbed) — install the HOOK and the EXTENSION
@@ -313,11 +321,11 @@ e.g. `/orfi-kit-commit` or `/orfi-kit-code-review`.
 
 ### 5.9 The SKILLS array
 
-The array the installer iterates over is the **15 `orfi-kit-*` skill names** (§3.4). Note that the
-Claude side ships only 5 of these as *skills* and the other 10 as *commands* — structure the
-installer so the Claude path installs 5 skills + 10 commands, while the Copilot path installs all
-15 as skills. (Trackbed used one shared array because its command set was trivial; here keep a
-`SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS` array for the 10
+The array the installer iterates over is the **19 `orfi-kit-*` skill names** (§3.4). Note that the
+Claude side ships only 5 of these as *skills* and the other 14 as *commands* — structure the
+installer so the Claude path installs 5 skills + 14 commands, while the Copilot path installs all
+19 as skills. (Trackbed used one shared array because its command set was trivial; here keep a
+`SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS` array for the 14
 Claude command files.)
 
 ---
@@ -356,9 +364,9 @@ The repo `README.md` must:
 
 The implementer can verify completion against this list:
 
-- [ ] **All 15 skills present on both runtimes** — `claude/skills` has the 5 Claude skill dirs;
-      `copilot/skills` has all 15 Copilot skill dirs.
-- [ ] **10 Claude command files** present in `claude/commands/`. Per-capability docs live in
+- [ ] **All skills present on both runtimes** — `claude/skills` has the 5 Claude skill dirs;
+      `copilot/skills` has all 19 Copilot skill dirs.
+- [ ] **14 Claude command files** present in `claude/commands/`. Per-capability docs live in
       `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
 - [ ] **Hook present** — `claude/hooks/orfi-kit-enforce-sync.sh` in the repo; installs to
       `~/.claude/hooks/`; remains executable.
