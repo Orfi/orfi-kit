@@ -27,15 +27,15 @@ Run the slash command:
 
 ```
 🟢 In progress:
-  - PANV-61405 (API Key Scope Model) — widening scopes to string[], adding fingerprint. Code complete; verified end-to-end.
+  - ORFI-61405 (API Key Scope Model) — widening scopes to string[], adding fingerprint. Code complete; verified end-to-end.
     Remaining: DoD + PR feature→epic.
     ETA: today.
 
 ✅ Done:
-  - PANV-61394 (Golden-File Verification Harness) — ported comparators, ran goldens. Merged (PR #499 → epic).
+  - ORFI-61394 (Golden-File Verification Harness) — ported comparators, ran goldens. Merged (PR #499 → epic).
 
 🔵 Next:
-  - PANV-61594 (IdMappingCacheService Redis+S3 Compliance) — drop the tier-3 Postgres fallback, S3-backed rehydration on Redis miss.
+  - ORFI-61594 (IdMappingCacheService Redis+S3 Compliance) — drop the tier-3 Postgres fallback, S3-backed rehydration on Redis miss.
 
 ❌ Blockers: none.
 ```

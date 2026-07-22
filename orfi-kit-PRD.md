@@ -18,7 +18,7 @@ commands, and hooks for AI-augmented development. It packages a team's day-to-da
 - **session state** — persist / load working context across sessions
 - **test runners** — unit, integration, and codegraph phase test commands
 - **scrum-poker** — Fibonacci planning-poker estimation of Jira tickets (via Atlassian MCP)
-- **C# XML-doc enforcement** — client-neutral XML documentation rules
+- **C# XML-doc enforcement** — XML documentation rules
 - **C++ Doxygen-doc enforcement** — header-only Doxygen documentation rules (+ check script)
 - **branch sync** — keep a feature branch in sync with its parent epic, enforced by a push hook
 
@@ -60,7 +60,7 @@ All source files currently live in:
 > **Note:** A **clean-slate copy is fine** — git history need **NOT** be preserved. Just copy the
 > files listed in the manifest below into the new repo layout.
 
-> **Heads-up:** The source repo also contains `orfi-ae-kit-*` files and a few GSD/client-specific
+> **Heads-up:** The source repo also contains `orfi-ae-kit-*` files and a few out-of-scope
 > files. Those are **excluded** (see §3). Copy **only** the files explicitly listed.
 
 ---
@@ -137,9 +137,8 @@ commands = 15 Copilot skills.)
 
 > **IMPORTANT — read carefully. Some of these names look like they belong; they do not.**
 
-- **`panviva-xml-docs`** (skill, present in both `claude-tools/skills/` and
-  `copilot-tools/skills/`) — **CLIENT-SPECIFIC**. Do **NOT** include it. `orfi-kit-xml-docs` is the
-  client-neutral replacement that ships instead.
+- **Any XML-docs skill other than `orfi-kit-xml-docs`** — `orfi-kit-xml-docs` is the only
+  XML-docs skill that ships. Do **NOT** include any other XML-docs variant.
 - **`orfi-gsd-secure-phase.md`** (command) — GSD-specific, out of scope.
 - **`orfi-update-gsd-state-phase.md`** (command) — GSD-specific, out of scope.
 - **`orfi-scrum-poker-workspace`** — already deleted; was eval scaffolding. Do not resurrect.
@@ -338,7 +337,7 @@ The repo `README.md` must:
   - `orfi-kit-run-unit-tests-phase` / `orfi-kit-run-integration-tests-phase` /
     `orfi-kit-run-codegraph-phase` — run the respective test phase.
   - `orfi-kit-scrum-poker` — Fibonacci estimate a Jira ticket via Atlassian MCP.
-  - `orfi-kit-xml-docs` — enforce client-neutral C# XML documentation.
+  - `orfi-kit-xml-docs` — enforce C# XML documentation.
   - `orfi-kit-sync-branch` / `orfi-kit-sync-master` — keep a branch synced with its parent.
   - `orfi-kit-enforce-sync.sh` (hook) — PreToolUse/Bash hook that blocks `git push` on an
     out-of-sync feature branch.
@@ -374,9 +373,9 @@ The implementer can verify completion against this list:
       install).
 - [ ] **`--link` / `--uninstall` / `--help`** (and PowerShell `-Link` / `-Uninstall` / `-Help`)
       all work.
-- [ ] **No client-specific content** — `grep -ri -E 'panviva|panv|vivabank' orfi-kit/` returns
-      **nothing**. (Also confirm no `orfi-ae-kit-*`, no `orfi-gsd-secure-phase`, no
-      `orfi-update-gsd-state-phase`, no `orfi-scrum-poker-workspace`.)
+- [ ] **Everything is `orfi-kit`-scoped** — every shipped item is prefixed `orfi-kit-`, and there
+      are no stray names to exclude: no `orfi-ae-kit-*`, no `orfi-gsd-secure-phase`, no
+      `orfi-update-gsd-state-phase`, no `orfi-scrum-poker-workspace`.
 - [ ] **README complete** — what-it-is, per-item descriptions, install/uninstall in both bash and
       PowerShell forms, sync-branch docs pointer, hook + extension notes.
 - [ ] **`install.sh` and `install.ps1` are behaviorally equivalent** (the maintenance pair is in
