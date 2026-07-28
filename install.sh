@@ -33,6 +33,7 @@ SKILLS_SRC="$REPO_DIR/claude/skills"            # Claude Code + OpenCode share t
 COPILOT_SKILLS_SRC="$REPO_DIR/copilot/skills"   # Copilot has its own copy
 CMDS_SRC="$REPO_DIR/claude/commands"
 HOOK_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-sync.sh"
+BREVITY_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-brevity.sh"
 EXT_SRC="$REPO_DIR/copilot/extensions/orfi-kit-guardrails"
 
 CLAUDE_SKILLS="$HOME/.claude/skills"
@@ -46,6 +47,9 @@ COPILOT_EXTS="$HOME/.copilot/extensions"        # verified from Copilot CLI bund
 
 HOOK_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-sync.sh"
 HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
+
+BREVITY_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-brevity.sh"
+BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
 
 # The 5 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs)
@@ -222,6 +226,74 @@ print_manual_hook_json() {
 JSON
 }
 
+# --- Brevity Stop hook: block over-long assistant replies ---------------------
+# Wires a Stop hook (no matcher — Stop events are not tool-scoped) that runs the
+# brevity enforcer. Idempotent; backs up settings.json first.
+
+wire_brevity_hook() {
+  place "$BREVITY_SRC" "$BREVITY_DEST"
+  chmod +x "$BREVITY_DEST" 2>/dev/null || true
+
+  if ! command -v jq >/dev/null 2>&1; then
+    say ""
+    say "  jq not found — cannot auto-wire settings.json. Add this manually to"
+    say "  $CLAUDE_SETTINGS under .hooks.Stop:"
+    print_manual_brevity_json
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+  [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
+
+  if ! jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+    say "  $CLAUDE_SETTINGS is not valid JSON — not touching it. Add manually:"
+    print_manual_brevity_json
+    return 0
+  fi
+
+  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg cmd "$BREVITY_CMD" '
+    .hooks //= {} |
+    .hooks.Stop //= [] |
+    if any(.hooks.Stop[]?; any(.hooks[]?; .command == $cmd))
+    then .
+    else .hooks.Stop += [{
+      "hooks": [{ "type": "command", "command": $cmd, "timeout": 10 }]
+    }]
+    end
+  ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+  say "  wired Stop brevity hook into settings.json (idempotent)"
+}
+
+unwire_brevity_hook() {
+  [ -e "$BREVITY_DEST" ] && { rm -f "$BREVITY_DEST"; say "  removed $BREVITY_DEST"; }
+  [ -f "$CLAUDE_SETTINGS" ] || return 0
+  command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit Stop entry from $CLAUDE_SETTINGS manually."; return 0; }
+  jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1 || { say "  $CLAUDE_SETTINGS not valid JSON — leaving it untouched."; return 0; }
+
+  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  local tmp; tmp="$(mktemp)"
+  jq --arg cmd "$BREVITY_CMD" '
+    if (.hooks.Stop | type) == "array" then
+      .hooks.Stop |= map(select((any(.hooks[]?; .command == $cmd)) | not))
+    else . end
+  ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+  say "  removed orfi-kit Stop entry from settings.json"
+}
+
+print_manual_brevity_json() {
+  cat <<'JSON'
+    {
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\"", "timeout": 10 }
+      ]
+    }
+JSON
+}
+
 # --- NEW (beyond trackbed): Copilot extension --------------------------------
 # Path verified from the Copilot CLI bundle: ~/.copilot/extensions/<name>/extension.mjs
 
@@ -278,6 +350,7 @@ if [ "$MODE" = "uninstall" ]; then
     remove_claude_skills_from "$CLAUDE_SKILLS"
     remove_commands_from "$CLAUDE_CMDS"
     unwire_hook
+    unwire_brevity_hook
   fi
   if [ "$WANT_OC" -eq 1 ]; then
     remove_claude_skills_from "$OPENCODE_SKILLS"
@@ -322,6 +395,9 @@ if [ "$WANT_CC" -eq 1 ]; then
   say ""
   say "Installing sync-enforcement hook (Claude Code):"
   wire_hook
+  say ""
+  say "Installing brevity-enforcement Stop hook (Claude Code):"
+  wire_brevity_hook
 fi
 
 # --- Copilot CLI (own source, own home, no command file) + extension ---------

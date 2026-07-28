@@ -52,7 +52,8 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | Capability | What it does | Surface | Requires |
 | --- | --- | --- | --- |
 | [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from an epic-derived working branch (any prefix) until it's rebased on its parent `epic/*`; ignores `master`/`epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | An epic-derived working branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
-| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
+| [orfi-kit-enforce-brevity-hook](docs/skills/orfi-kit-enforce-brevity-hook.md) | Stop hook that **blocks over-long replies**: counts lines in the assistant's finished reply and, if over ~25 (about one page), feeds it back with an instruction to shorten. Lifts the limit when the user asks for depth (e.g. "in full", "in detail"). Enforces the guardrails' brevity rule mechanically. | Claude Code hook | `jq`; a Stop-hook-capable Claude Code. Copilot gets a next-turn equivalent via the guardrails extension |
+| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
 
@@ -75,11 +76,16 @@ runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI — one or severa
 
 ### Hook wiring (Claude Code)
 
-When you install for Claude Code, the installer places `orfi-kit-enforce-sync.sh` in
-`~/.claude/hooks/` and offers to wire it into `~/.claude/settings.json` as a PreToolUse/Bash hook.
-The merge is **idempotent** and **non-destructive**: your existing settings are preserved and a
-`settings.json.bak` backup is written before any change. Decline the prompt to get manual wiring
-instructions instead. Uninstall removes both the hook file and the settings entry.
+When you install for Claude Code, the installer places two hooks in `~/.claude/hooks/` and wires
+each into `~/.claude/settings.json`:
+
+- `orfi-kit-enforce-sync.sh` → a **PreToolUse/Bash** entry (blocks unsynced `git push`).
+- `orfi-kit-enforce-brevity.sh` → a **Stop** entry (blocks over-long replies; ~25-line limit,
+  override with `ORFI_BREVITY_MAX_LINES`, auto-lifted when the user asks for depth).
+
+Both merges are **idempotent** and **non-destructive**: your existing settings are preserved and a
+`settings.json.bak` backup is written before any change. Decline the sync-hook prompt to get manual
+wiring instructions instead. Uninstall removes both hook files and their settings entries.
 
 > Auto-wiring requires `jq` (bash) — without it you'll get manual instructions. PowerShell uses
 > built-in JSON support.

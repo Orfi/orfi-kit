@@ -32,6 +32,7 @@ $SkillsSrc        = Join-Path $RepoDir 'claude/skills'
 $CopilotSkillsSrc = Join-Path $RepoDir 'copilot/skills'
 $CmdsSrc          = Join-Path $RepoDir 'claude/commands'
 $HookSrc          = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-sync.sh'
+$BrevitySrc       = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-brevity.sh'
 $ExtSrc           = Join-Path $RepoDir 'copilot/extensions/orfi-kit-guardrails'
 
 $Home_     = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
@@ -48,6 +49,9 @@ $CopilotExts    = Join-Path $Home_ '.copilot/extensions'   # verified from Copil
 
 $HookDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-sync.sh'
 $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
+
+$BrevityDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-brevity.sh'
+$BrevityCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh"'
 
 $ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs')
 
@@ -189,6 +193,63 @@ function Unwire-Hook {
     Say "  removed orfi-kit PreToolUse entry from settings.json"
 }
 
+function Get-ManualBrevityText {
+@'
+    {
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\"", "timeout": 10 }
+      ]
+    }
+'@
+}
+
+function Wire-BrevityHook {
+    Place $BrevitySrc $BrevityDest
+
+    $dir = Split-Path -Parent $ClaudeSettings
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path $ClaudeSettings)) { '{}' | Set-Content -Path $ClaudeSettings }
+
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings is not valid JSON — not touching it. Add manually to .hooks.Stop:"; Say (Get-ManualBrevityText); return }
+
+    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+
+    if (-not $json.hooks) { $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
+    if (-not $json.hooks.Stop) { $json.hooks | Add-Member -NotePropertyName Stop -NotePropertyValue @() -Force }
+
+    $already = @($json.hooks.Stop | Where-Object {
+        $_.hooks | Where-Object { $_.command -eq $BrevityCmd }
+    }).Count -gt 0
+
+    if ($already) {
+        Say "  brevity hook already wired — leaving settings.json unchanged (idempotent)"
+    } else {
+        $entry = [pscustomobject]@{
+            hooks = @([pscustomobject]@{ type = 'command'; command = $BrevityCmd; timeout = 10 })
+        }
+        $json.hooks.Stop = @($json.hooks.Stop) + $entry
+        ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+        Say "  wired Stop brevity hook into settings.json"
+    }
+}
+
+function Unwire-BrevityHook {
+    if (Test-Path $BrevityDest) { Remove-Item -Force $BrevityDest; Say "  removed $BrevityDest" }
+    if (-not (Test-Path $ClaudeSettings)) { return }
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings not valid JSON — leaving it untouched."; return }
+    if (-not $json.hooks -or -not $json.hooks.Stop) { return }
+
+    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    $kept = @($json.hooks.Stop | Where-Object {
+        -not ($_.hooks | Where-Object { $_.command -eq $BrevityCmd })
+    })
+    $json.hooks.Stop = $kept
+    ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+    Say "  removed orfi-kit Stop entry from settings.json"
+}
+
 # --- NEW: Copilot extension (verified path ~/.copilot/extensions) ------------
 
 function Install-CopilotExtension { Place $ExtSrc (Join-Path $CopilotExts 'orfi-kit-guardrails') }
@@ -229,7 +290,7 @@ if (-not ($WantCC -or $WantOC -or $WantCP)) { Die 'no runtime selected' }
 if ($Uninstall) {
     Say ''
     Say 'Uninstalling orfi-kit...'
-    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Unwire-Hook }
+    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Unwire-Hook; Unwire-BrevityHook }
     if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds }
     if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension }
     Say 'Done.'
@@ -268,6 +329,9 @@ if ($WantCC) {
     Say ''
     Say 'Installing sync-enforcement hook (Claude Code):'
     Wire-Hook
+    Say ''
+    Say 'Installing brevity-enforcement Stop hook (Claude Code):'
+    Wire-BrevityHook
 }
 
 # --- Copilot CLI + extension -------------------------------------------------

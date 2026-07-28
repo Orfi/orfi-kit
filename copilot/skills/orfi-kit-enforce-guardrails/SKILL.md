@@ -61,3 +61,4 @@ Acknowledge every constraint below. These are non-negotiable. Violations erode t
 31. **Zero Assumption:** Ask for clarification before making any non-obvious logic change. A quick question costs less than fixing a wrong guess.
 32. **Maximum Conciseness:** No fluff. Lead with what matters. Show only the essential diff, not the full file.
 33. **Context Retrieval:** Use web search or `context7` MCP immediately when stuck. Tell the user what you are searching for and what you found.
+34. **One Page Default:** Keep every reply under ~25 lines (about one screen) unless the user explicitly asks for depth ("in full", "in detail", "walk me through"). Give the answer or the single decision that's needed, then stop — no restating known context, no options you won't pursue, no re-explaining settled decisions. When a decision needs the user, surface ONE point at a time, not a wall of stacked questions.
