@@ -1,6 +1,6 @@
 ---
 name: orfi-kit-cpp-code-review
-description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|SAFETY|<path>]."
+description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|<path>]."
 ---
 
 # orfi-kit-cpp-code-review
@@ -8,7 +8,7 @@ description: "Run a C++ code review that executes the enforcing tools (clang-for
 Review C++ changes by **running the tools that enforce the rules**, then judging the things tools
 can't see.
 
-Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|SAFETY|<path>]`. This does not run on its
+Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|<path>]`. This does not run on its
 own; it's a review you ask for, typically before opening a PR.
 
 Read-only with respect to your source: it runs tools and reports, and never rewrites the code under
@@ -43,8 +43,7 @@ git diff --name-only "$BASE"...HEAD -- '*.cpp' '*.h' '*.hpp' '*.cc' '*.cxx' '*.i
 
 Ask the user which scope they want when the default doesn't work — empty diff, no resolvable base, or
 a diff big enough that whole-project tooling is cheaper. `FULL` reviews the whole project; a path
-scopes it manually; `SAFETY` adds the safety-critical rules (see the end of this file). Either way,
-say what scope you settled on.
+scopes it manually. Either way, say what scope you settled on.
 
 **Exclude vendored code.** C++ projects routinely check in third-party sources — `glm/`, `third_party/`,
 `external/`, `vendor/`, single-header libraries. Reviewing those is noise: they follow their upstream's
@@ -234,21 +233,6 @@ No `.clang-format` or `.clang-tidy` at all? Worth mentioning as a recommendation
 a local build can enforce style without them — but it's a gap in the repo, not a problem with the
 change. Everything in the judgment section is unaffected. `CONFIG.md` has a baseline you can offer as
 a starting point; it's a seed to adopt, not a rule to enforce against a repo that already has its own.
-
-## Safety-critical rules — opt-in only
-
-`SAFETY` adds the ten safety-critical rules listed at the end of `CONFIG.md`: no recursion, no dynamic
-allocation after init, ~60-line functions, assertion density, no globals, checked returns, restricted
-pointers, and zero warnings.
-
-**Off by default, and deliberately so.** Ordinary application C++ violates these constantly by design
-— Qt allocates with `new` throughout and asserts sparingly — so enabling them everywhere would bury
-real findings under hundreds of expected violations. Request them when the code genuinely is
-safety-critical.
-
-When `SAFETY` is on, two rules become tool-verifiable (`readability-function-size` for length,
-`-Wall -Wextra -Werror` for warnings); assess the rest by reading, and report them as their own
-section so they don't crowd out the ordinary findings.
 
 ## Report
 

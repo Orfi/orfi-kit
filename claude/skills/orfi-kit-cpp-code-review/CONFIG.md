@@ -202,23 +202,3 @@ cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 For qmake, wrap the build (`bear -- make`) or generate one with `compiledb`. Generating a build
 database is a **build** action, not a review action — if none exists, say so and fall back to reading
 the code rather than mutating the project to enable a tool.
-
-## Safety-critical rules (opt-in)
-
-These are **off by default**. Ordinary application C++ — including every reference project this
-baseline came from — violates them constantly by design, and enabling them everywhere would bury real
-findings. Request them explicitly for safety-critical work.
-
-1. Simple control flow — no `goto`, no recursion
-2. Fixed, verifiable loop bounds
-3. No dynamic allocation after initialization
-4. Short functions — roughly 60 lines maximum
-5. Assertion density — at least two per function
-6. Small data scope — no global variables
-7. Every non-void return value checked
-8. Limited preprocessor use — no token pasting
-9. Restricted pointers — one level of dereference, no function pointers
-10. Pedantic compilation — zero warnings
-
-Two of these are tool-verifiable when enabled: #4 via `readability-function-size`, #10 via
-`-Wall -Wextra -Werror`. The rest are judgment-lane checks.

@@ -18,7 +18,7 @@ User-invoked; it never runs on its own. Typically before opening a PR.
 /orfi-kit-cpp-code-review
 ```
 
-Optional scope argument: `DIFF` (default), `FULL` (whole project), `SAFETY` (adds the safety-critical rules), or an explicit path.
+Optional scope argument: `DIFF` (default), `FULL` (whole project), or an explicit path.
 
 ## Prerequisites
 
@@ -45,13 +45,6 @@ Optional scope argument: `DIFF` (default), `FULL` (whole project), `SAFETY` (add
 - **Authority ladder for style findings** — every style finding names what it rests on: (1) repo config, citing the key or check name — the only rung that yields a real violation; (2) tool default in effect, citing the check name; (3) prevailing pattern, cited with `file:line` and reported as an unenforced convention, non-blocking; (4) nothing — stays silent. Rung 1 is usually empty in C++, so rung 3 does most of the work — and it prefers the pattern in the **file being changed** over a project-wide average, since C++ projects often mix styles across modules.
 - **Large diffs fan out** — splits by file or by dimension (correctness, memory/lifetime, headers, completeness), passes the config it read into each pass, then consolidates and ranks once. On Claude Code this dispatches parallel subagents; on Copilot it's a deliberate sequential split.
 - **Security is delegated, not reimplemented** — it records a verdict from a dedicated security review rather than improvising threat-modeling inline.
-- **Safety-critical rules are opt-in** — see below.
-
-## Safety-critical rules (`SAFETY`)
-
-Passing `SAFETY` adds the ten NASA/JPL-style rules: no `goto` or recursion, fixed loop bounds, no dynamic allocation after init, ~60-line functions, at least two assertions per function, no globals, every non-void return checked, limited preprocessor use, one level of pointer dereference, and zero warnings.
-
-**Off by default, deliberately.** Ordinary application C++ violates these constantly by design — Qt allocates with `new` throughout and asserts sparingly — so enabling them everywhere would bury real findings under hundreds of expected violations. When enabled, two become tool-verifiable (`readability-function-size` for length, `-Wall -Wextra -Werror` for warnings) and the rest are assessed by reading, reported as their own section.
 
 ## Per-runtime differences
 

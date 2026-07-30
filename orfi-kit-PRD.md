@@ -111,7 +111,7 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
   `CONFIG.md` that a single command file could not carry.
 - `orfi-kit-cpp-code-review/`  (contains `SKILL.md`, `CONFIG.md`) — the C++ sibling of the above,
   same rationale for being a skill directory. Runs `clang-format` / `clang-tidy` / build / tests
-  instead of the .NET toolchain, and adds an opt-in `SAFETY` scope for the NASA/JPL rules.
+  instead of the .NET toolchain.
 
 ### 3.3 Claude Code — hooks (from `claude-tools/hooks/`)
 
@@ -400,9 +400,8 @@ The implementer can verify completion against this list:
       project's own build and test commands. It must (a) exclude vendored and generated code and say
       which paths it skipped; (b) treat missing `.clang-format` / `.clang-tidy` as the *normal* case,
       falling back to the prevailing pattern of the file being changed rather than general C++ norms;
-      (c) keep the safety-critical (`SAFETY`) rules **opt-in**, since ordinary application C++ violates
-      them by design; and (d) cover the C++-specific judgment lanes — memory/lifetime, const
-      correctness, and header hygiene.
+      and (c) cover the C++-specific judgment lanes — memory/lifetime, const correctness, and header
+      hygiene.
 - [ ] **Hooks present** — `claude/hooks/orfi-kit-enforce-sync.sh` and
       `claude/hooks/orfi-kit-enforce-brevity.sh` in the repo; both install to `~/.claude/hooks/`;
       both remain executable.
