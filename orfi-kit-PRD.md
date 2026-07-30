@@ -21,6 +21,7 @@ commands, and hooks for AI-augmented development. It packages a team's day-to-da
 - **C# XML-doc enforcement** — XML documentation rules
 - **C++ Doxygen-doc enforcement** — header-only Doxygen documentation rules (+ check script)
 - **branch sync** — keep a feature branch in sync with its parent epic, enforced by a push hook
+- **brevity enforcement** — cap replies at about one page, enforced by a Stop hook
 
 It is **one of two kits**:
 
@@ -109,6 +110,11 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
 
 - `orfi-kit-enforce-sync.sh` — a **PreToolUse** hook on **Bash** that **blocks `git push`** when a
   feature branch is out of sync with its parent epic. Pairs with `orfi-kit-sync-branch`.
+- `orfi-kit-enforce-brevity.sh` — a **Stop** hook that **blocks over-long replies**: it counts the
+  lines in the finished assistant turn and, past ~25 (about one page), feeds the reply back with an
+  instruction to shorten. Threshold overridable via `ORFI_BREVITY_MAX_LINES`; lifted when the user
+  asks for depth. Enforces the brevity rule in `orfi-kit-guardrails` mechanically. Requires `jq`
+  (fails open without it).
 
 ### 3.4 Copilot — skills (from `copilot-tools/skills/`)
 
@@ -161,7 +167,7 @@ orfi-kit/
   claude/
     commands/   <- the 14 orfi-kit-*.md command files
     skills/     <- the 5 orfi-kit-* Claude skill dirs
-    hooks/      <- orfi-kit-enforce-sync.sh
+    hooks/      <- orfi-kit-enforce-sync.sh, orfi-kit-enforce-brevity.sh
   copilot/
     skills/     <- the 19 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
@@ -368,10 +374,12 @@ The implementer can verify completion against this list:
       `copilot/skills` has all 19 Copilot skill dirs.
 - [ ] **14 Claude command files** present in `claude/commands/`. Per-capability docs live in
       `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
-- [ ] **Hook present** — `claude/hooks/orfi-kit-enforce-sync.sh` in the repo; installs to
-      `~/.claude/hooks/`; remains executable.
-- [ ] **Hook settings wiring** — installer adds the PreToolUse/Bash entry to `settings.json`
-      idempotently (auto), with manual-instructions fallback; uninstall removes it; `settings.json`
+- [ ] **Hooks present** — `claude/hooks/orfi-kit-enforce-sync.sh` and
+      `claude/hooks/orfi-kit-enforce-brevity.sh` in the repo; both install to `~/.claude/hooks/`;
+      both remain executable.
+- [ ] **Hook settings wiring** — installer adds the PreToolUse/Bash entry (sync) and the Stop entry
+      (brevity, no `matcher` — Stop events are not tool-scoped) to `settings.json` idempotently
+      (auto), with manual-instructions fallback for each; uninstall removes both; `settings.json`
       is **merged, never overwritten**, and backed up before write.
 - [ ] **Copilot extension** present (`copilot/extensions/orfi-kit-guardrails/extension.mjs`) and
       installed to the verified Copilot extensions path.
