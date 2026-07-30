@@ -161,7 +161,8 @@ Never force-push the epic branch or master. `--force-with-lease` is only accepta
 ### Opening the story PR (feature → epic)
 
 1. Run the sync cascade so the feature branch is current with epic.
-2. Run the project's full quality gate (e.g. `/dod`).
+2. Run the project's full quality gate — whatever the project defines as one (tests, lint, format,
+   review). Consult the project's onboarding/context docs for the exact command.
 3. Open PR with base = `epic/{EPIC-ID}-{name}`, head = `feature/{STORY-ID}-{name}`. **Not** base=master.
 4. After merge, prune:
    ```bash
