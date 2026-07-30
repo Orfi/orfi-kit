@@ -2,7 +2,7 @@
 name: orfi-kit-csharp-code-review
 user-invocable: true
 allowed-tools: Bash(*), Read(*), Grep(*), Glob(*), Agent(*)
-description: "Run a C# code review that executes the enforcing tools (dotnet format / build / test) and grounds style verdicts in the repo's own config rather than general C# norms. Invoke with /orfi-kit-csharp-code-review [DIFF|FULL|<path>]."
+description: "Run a C# code review that executes the enforcing tools (dotnet format / build / test) and grounds style verdicts in the repo's own config rather than general C# norms. Invoke with /orfi-kit-csharp-code-review [DIFF|FULL|BUGS|SECURITY|PERFORMANCE|<path>]."
 ---
 
 # orfi-kit-csharp-code-review
@@ -10,8 +10,11 @@ description: "Run a C# code review that executes the enforcing tools (dotnet for
 Review C# changes by **running the tools that enforce the rules**, then judging the things tools
 can't see.
 
-Invoked on request — `/orfi-kit-csharp-code-review [DIFF|FULL|<path>]`. This does not run on its own;
+Invoked on request — `/orfi-kit-csharp-code-review [DIFF|FULL|BUGS|SECURITY|PERFORMANCE|<path>]`. This does not run on its own;
 it's a review you ask for, typically before opening a PR.
+
+Read-only with respect to your source: it runs tools and reports, and never rewrites the code under
+review — `--verify-no-changes` only, never bare `dotnet format`.
 
 C# only. C++ has its own toolchain (clang-format / clang-tidy / Doxygen) and belongs in a separate
 skill — the approach generalizes, the tooling doesn't.
@@ -143,6 +146,12 @@ The more valuable half. Tools won't find any of this:
 - **Internal correctness** — needs no spec, so this always runs. Trace the logic: edge cases, null and
   error paths, boundaries and off-by-ones, concurrency, cancellation, disposal, swallowed exceptions,
   unreachable branches. A bug that's self-evident from the code is still a bug.
+- **Performance** — only where it plausibly matters; don't micro-optimise cold paths. Allocation inside
+  loops, LINQ chains that enumerate repeatedly or materialise needlessly, `async` methods missing
+  `ConfigureAwait` in library code, sync-over-async (`.Result` / `.Wait()`), string concatenation in
+  loops where a `StringBuilder` fits, boxing in hot paths, N+1 query patterns, and `IEnumerable`
+  re-enumeration. Say *why* it matters — the same allocation in a request path and in startup are not
+  the same finding.
 - **Intent correctness** — does it do the *right* thing, not just a consistent thing? This one needs a
   source of truth from the step above. Name the rung you're judging against. Without any rung, say so
   rather than substituting your own assumption about what the code was meant to do.
@@ -188,9 +197,26 @@ pass still works from built-in defaults, and everything in the judgment section 
 `CONFIG.md` has a baseline you can offer as a starting point; it's a seed to adopt, not a rule to
 enforce against a repo that already has its own.
 
+## Focus modes
+
+By default every lane runs. Pass one or more focus keywords to narrow the judgment lane to a single
+axis when that's all you want — useful for a quick pass or a second look at one dimension:
+
+- `BUGS` — internal correctness only
+- `SECURITY` — the security item only
+- `PERFORMANCE` — the performance lane only
+
+Combine with commas (`BUGS,PERFORMANCE`). Focus modes can be combined with a scope
+(`DIFF BUGS`, `FULL PERFORMANCE`).
+
+**The tool lane always runs**, whatever the focus — it's cheap, it's the part that catches what
+reasoning misses, and a review that skipped it would be worthless. Focus narrows judgment, not
+verification. Say which focus you used in the report, so a narrow pass is never mistaken for a full
+review.
+
 ## Report
 
-- **Scope** — what was reviewed, and the base it diffed against.
+- **Scope** — what was reviewed, the base it diffed against, and the focus if you narrowed it.
 - **Sources** — the config you read, and which source-of-truth rung you judged intent against (or
   that none was found). A reader should never have to guess what the review was measured against.
 - **Tools** — each command, its verdict, the output. Anything that couldn't run, and why.

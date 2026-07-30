@@ -4,7 +4,7 @@
 
 ## What it does
 
-Reviews C++ changes in two lanes. The **tool lane** runs the enforcers — `clang-format --dry-run -Werror`, `clang-tidy`, the project's build, and its tests — and pastes their output rather than describing what they'd probably say. The **judgment lane** covers what no tool can see: correctness, memory and lifetime, const correctness, header hygiene, completeness, test coverage, and ADR/PRD conformance.
+Reviews C++ changes in two lanes. The **tool lane** runs the enforcers — `clang-format --dry-run -Werror`, `clang-tidy`, the project's build, and its tests — and pastes their output rather than describing what they'd probably say. The **judgment lane** covers what no tool can see: correctness, memory and lifetime, const correctness, header hygiene, performance, completeness, test coverage, and ADR/PRD conformance.
 
 It's the C++ sibling of [`orfi-kit-csharp-code-review`](orfi-kit-csharp-code-review.md), built on the same principle after a misnamed member passed a C# review because the reviewer trusted language norms over the rule the repo had actually encoded. The two stay separate on purpose: the lesson generalizes, the toolchain doesn't.
 
@@ -18,7 +18,7 @@ User-invoked; it never runs on its own. Typically before opening a PR.
 /orfi-kit-cpp-code-review
 ```
 
-Optional arguments: `DIFF` (default), `FULL` (whole project), or an explicit path — plus `RAW` or `SMART` to force the ownership style, which can be combined with a scope.
+Optional arguments: `DIFF` (default), `FULL` (whole project), or an explicit path; `RAW` / `SMART` to force the ownership style; and `BUGS`, `SECURITY`, or `PERFORMANCE` to narrow the judgment lane to one axis. All combinable.
 
 ## Prerequisites
 
@@ -46,6 +46,8 @@ Optional arguments: `DIFF` (default), `FULL` (whole project), or an explicit pat
 - **Test coverage is reviewed, not assumed** — a green suite proves the existing tests pass, not that the new code is tested. It names changed paths with no covering test and won't claim a coverage percentage no tool produced.
 - **Authority ladder for style findings** — every style finding names what it rests on: (1) repo config, citing the key or check name — the only rung that yields a real violation; (2) tool default in effect, citing the check name; (3) prevailing pattern, cited with `file:line` and reported as an unenforced convention, non-blocking; (4) nothing — stays silent. Rung 1 is usually empty in C++, so rung 3 does most of the work — and it prefers the pattern in the **file being changed** over a project-wide average, since C++ projects often mix styles across modules.
 - **Large diffs fan out** — splits by file or by dimension (correctness, memory/lifetime, headers, completeness), passes the config it read into each pass, then consolidates and ranks once. On Claude Code this dispatches parallel subagents; on Copilot it's a deliberate sequential split.
+- **Performance lane** — unnecessary copies where a `const&` or `std::move` fits, pass-by-value containers, allocation inside loops, hoistable repeated lookups, missing `reserve`, O(n²) walks, and needless work in frequently-called paths (paint, update, event handlers). It says *why* a finding matters — a copy in a hot render loop is a finding, the same copy in one-time setup isn't. `clang-tidy`'s `performance-*` checks cover part of this in the tool lane.
+- **Focus modes** — by default every lane runs. `BUGS`, `SECURITY`, and `PERFORMANCE` narrow the judgment lane to one axis (comma-combinable, and combinable with a scope), adopted from the generic `orfi-kit-code-review`. **The tool lane always runs regardless** — it's cheap and it's what catches what reasoning misses, so focus narrows judgment, not verification. The report names the focus used, so a narrow pass is never mistaken for a full review.
 - **Security is delegated, not reimplemented** — it records a verdict from a dedicated security review rather than improvising threat-modeling inline.
 
 ## Per-runtime differences

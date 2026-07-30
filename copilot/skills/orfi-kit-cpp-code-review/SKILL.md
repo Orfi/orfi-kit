@@ -1,6 +1,6 @@
 ---
 name: orfi-kit-cpp-code-review
-description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|<path>]."
+description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|BUGS|SECURITY|PERFORMANCE|<path>]."
 ---
 
 # orfi-kit-cpp-code-review
@@ -8,7 +8,7 @@ description: "Run a C++ code review that executes the enforcing tools (clang-for
 Review C++ changes by **running the tools that enforce the rules**, then judging the things tools
 can't see.
 
-Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|<path>]`. This does not run on its
+Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|BUGS|SECURITY|PERFORMANCE|<path>]`. This does not run on its
 own; it's a review you ask for, typically before opening a PR.
 
 Read-only with respect to your source: it runs tools and reports, and never rewrites the code under
@@ -247,6 +247,14 @@ partly unavailable. Tools won't find any of this:
 - **Header hygiene** — is each changed header self-contained? Would it compile if included first? Are
   includes ordered per the hierarchy in `CONFIG.md`? Includes that should be forward declarations
   (they slow every consumer's build). Include guards present and matching the file.
+- **Performance** — only where it plausibly matters; don't micro-optimise cold paths. Unnecessary copies
+  where a `const&` or `std::move` would do, pass-by-value of containers and strings, allocation inside
+  loops, repeated lookups that could be hoisted, `std::endl` where `'
+'` suffices, missing `reserve`
+  before a known-size fill, O(n²) walks over data that could be indexed, and needless work in
+  frequently-called paths (paint, update, event handlers). Say *why* it matters — a copy in a hot render
+  loop is a finding; the same copy in one-time setup is not. `clang-tidy`'s `performance-*` checks cover
+  part of this in the tool lane; this lane is for what they can't see.
 - **Intent correctness** — does it do the *right* thing, not just a consistent thing? This one needs a
   source of truth from the step above. Name the rung you're judging against. Without any rung, say so
   rather than substituting your own assumption about what the code was meant to do.
@@ -293,10 +301,27 @@ a local build can enforce style without them — but it's a gap in the repo, not
 change. Everything in the judgment section is unaffected. `CONFIG.md` has a baseline you can offer as
 a starting point; it's a seed to adopt, not a rule to enforce against a repo that already has its own.
 
+## Focus modes
+
+By default every lane runs. Pass one or more focus keywords to narrow the judgment lane to a single
+axis when that's all you want — useful for a quick pass or a second look at one dimension:
+
+- `BUGS` — internal correctness only
+- `SECURITY` — the security item only
+- `PERFORMANCE` — the performance lane only
+
+Combine with commas (`BUGS,PERFORMANCE`). Focus modes can be combined with a scope
+(`DIFF BUGS`, `FULL PERFORMANCE`).
+
+**The tool lane always runs**, whatever the focus — it's cheap, it's the part that catches what
+reasoning misses, and a review that skipped it would be worthless. Focus narrows judgment, not
+verification. Say which focus you used in the report, so a narrow pass is never mistaken for a full
+review.
+
 ## Report
 
-- **Scope** — what was reviewed, the base it diffed against, and which paths you excluded as vendored
-  or generated.
+- **Scope** — what was reviewed, the base it diffed against, the focus if you narrowed it, and which
+  paths you excluded as vendored or generated.
 - **Sources** — the config you read (or that none existed), which source-of-truth rung you judged
   intent against, and the ownership mode you resolved plus where it came from. A reader should never
   have to guess what the review was measured against.

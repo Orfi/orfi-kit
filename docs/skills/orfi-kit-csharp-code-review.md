@@ -4,7 +4,7 @@
 
 ## What it does
 
-Reviews C# changes in two lanes. The **tool lane** actually runs the enforcers — `dotnet format --verify-no-changes --diagnostics`, `dotnet build`, `dotnet test` — and pastes their output rather than describing what they'd probably say. The **judgment lane** covers what no tool can see: correctness, completeness, ADR and PRD conformance.
+Reviews C# changes in two lanes. The **tool lane** actually runs the enforcers — `dotnet format --verify-no-changes --diagnostics`, `dotnet build`, `dotnet test` — and pastes their output rather than describing what they'd probably say. The **judgment lane** covers what no tool can see: correctness, completeness, performance, test coverage, and ADR/PRD conformance.
 
 It exists because of a specific failure. A private `const` in PascalCase passed review and wasn't caught until the format gate, because the review reasoned from general C# knowledge ("constants are PascalCase, looks right") instead of reading the repo's `.editorconfig` — which declared `applicable_kinds = field` with a `_` prefix requirement. A `const` *is* a field, the rule covered it, and with `TreatWarningsAsErrors` set it was breaking the build the whole time. One command would have caught it.
 
@@ -18,7 +18,7 @@ User-invoked; it never runs on its own. Typically before opening a PR.
 /orfi-kit-csharp-code-review
 ```
 
-Optional scope argument: `DIFF` (default), `FULL` (whole solution), or an explicit path/project.
+Optional arguments: `DIFF` (default), `FULL` (whole solution), or an explicit path/project — plus `BUGS`, `SECURITY`, or `PERFORMANCE` to narrow the judgment lane to one axis (comma-combinable, and combinable with a scope).
 
 ## Prerequisites
 
@@ -43,6 +43,8 @@ Optional scope argument: `DIFF` (default), `FULL` (whole solution), or an explic
 - **Missing `.editorconfig`** — mentioned as a recommendation (CI can't enforce style without one), not a defect in the change under review. `dotnet format`'s whitespace pass still works from built-in defaults, and the judgment lane is unaffected.
 - **Test coverage is reviewed, not assumed** — a green suite proves the existing tests pass, not that the new code is tested. For each behavior the diff adds or changes, it asks whether a test exists that would fail if that behavior broke, and names changed paths with no covering test. It uses the repo's existing coverage tooling (coverlet, a `--collect` flag, a CI coverage step) when there is some, and otherwise reads the tests against the diff rather than bolting on a collector. It reports uncovered paths by name and won't claim a coverage percentage no tool produced. Reviewing coverage is in scope; writing the missing tests is not.
 - **Large diffs fan out** — when a diff is too big for one pass, it splits the work by file or by dimension (correctness, completeness, ADR/PRD conformance), passes the config it read into each pass so judgments stay grounded in the repo's rules, then consolidates: overlapping findings merged, most precise citation kept, and the combined set ranked once. On Claude Code this dispatches parallel subagents; on Copilot it's a deliberate sequential split.
+- **Performance lane** — allocation inside loops, LINQ chains that re-enumerate or materialise needlessly, sync-over-async (`.Result` / `.Wait()`), missing `ConfigureAwait` in library code, string concatenation where a `StringBuilder` fits, boxing in hot paths, N+1 queries, and `IEnumerable` re-enumeration. It says *why* a finding matters rather than flagging cold-path micro-optimisations.
+- **Focus modes** — by default every lane runs. `BUGS`, `SECURITY`, and `PERFORMANCE` narrow the judgment lane to one axis (comma-combinable, and combinable with a scope), adopted from the generic `orfi-kit-code-review`. **The tool lane always runs regardless** — it's cheap and it's what catches what reasoning misses, so focus narrows judgment, not verification. The report names the focus used, so a narrow pass is never mistaken for a full review.
 - **Security is delegated, not reimplemented** — security analysis needs adversarial threat-modeling and its own severity rubric, so the skill records a verdict from a dedicated security review rather than improvising one inline. Keeping one copy of that logic avoids drift between two.
 
 ## Per-runtime differences
