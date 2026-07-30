@@ -53,10 +53,11 @@ $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
 $BrevityDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-brevity.sh'
 $BrevityCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh"'
 
-$ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs')
+$ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs','orfi-kit-csharp-code-review')
 
 $CopilotSkillNames = @(
-  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
+  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-csharp-code-review',
+  'orfi-kit-enforce-guardrails',
   'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-init','orfi-kit-load-state',
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',

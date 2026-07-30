@@ -14,9 +14,11 @@ rules, and branch sync — and installs them flat (every item is prefixed `orfi-
 
 Every row below links to a full doc page under [`docs/skills/`](docs/skills/).
 
-### Skills (always-on or auto-triggered)
+### Skills (always-on, auto-triggered, or invoked)
 
-Claude Code / OpenCode skills (Copilot ships these as slash commands).
+Claude Code / OpenCode skills (Copilot ships these as slash commands). Most trigger on their own;
+`orfi-kit-csharp-code-review` is a skill directory because it ships a companion `CONFIG.md`, but you
+invoke it like a command.
 
 | Capability | What it does | Trigger | Requires |
 | --- | --- | --- | --- |
@@ -25,6 +27,7 @@ Claude Code / OpenCode skills (Copilot ships these as slash commands).
 | [orfi-kit-scrum-poker](docs/skills/orfi-kit-scrum-poker.md) | Estimates a Jira ticket on the Fibonacci scale (1/2/3/5/8/?) with calibration and reasoning, then writes the points back after you confirm. | Auto-triggers when you ask to estimate / size a Jira ticket | Atlassian MCP server with access to your Jira instance |
 | [orfi-kit-xml-docs](docs/skills/orfi-kit-xml-docs.md) | Enforces formal `///` XML doc comments on every public, protected, and static C# member. | Auto-triggers when writing / editing C# XML doc comments | A C# project; `pwsh` for the checker |
 | [orfi-kit-doxygen-docs](docs/skills/orfi-kit-doxygen-docs.md) | Enforces Doxygen comments on every exposed (public / protected / static) declaration in C++ headers; follows the file's existing `/**` or `///` style. | Auto-triggers when writing / editing C++ Doxygen comments | A C++ project; `pwsh` or bash for the checker |
+| [orfi-kit-csharp-code-review](docs/skills/orfi-kit-csharp-code-review.md) | C# review that **runs** the enforcers (`dotnet format --verify-no-changes`, `build`, `test`) and grounds every style verdict in the repo's own `.editorconfig` / `Directory.Build.props` rather than general C# norms, then judges correctness, completeness, and ADR/PRD conformance. Ships a `CONFIG.md` baseline for repos with no config. | `/orfi-kit-csharp-code-review [DIFF\|FULL\|<path>]` — diff-scoped by default | A C# project and the .NET SDK; an upstream branch for diff scope |
 
 ### Commands (you invoke them)
 
