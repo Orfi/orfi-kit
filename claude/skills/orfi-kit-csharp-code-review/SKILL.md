@@ -37,17 +37,33 @@ looks like.**
 
 ## Scope
 
-Default to the **diff** — what changed against the parent branch:
+Default to the **diff** — the whole body of work on this branch, not just its unpushed commits. In
+practice that's a story or a phase: everything that will land when this branch merges.
+
+Resolve the base as the branch's **fork point from its parent**, in this order:
 
 ```bash
-BASE=$(git merge-base HEAD @{u} 2>/dev/null || git merge-base HEAD origin/master)
+# 1. If this is an epic-derived working branch, the parent is its epic branch.
+git fetch origin >/dev/null 2>&1
+for e in $(git branch -r --list 'origin/epic/*' --format='%(refname:short)'); do
+  git merge-base --is-ancestor "$e" HEAD 2>/dev/null && BASE=$(git merge-base "$e" HEAD)
+done
+# 2. Otherwise fall back to the trunk.
+: "${BASE:=$(git merge-base HEAD origin/master 2>/dev/null || git merge-base HEAD origin/main)}"
+
 git diff --name-only "$BASE"...HEAD -- '*.cs'
 ```
 
-Ask the user which scope they want when the default doesn't work — empty diff, no resolvable base,
-or a diff big enough that running tools per-project is slower than doing the whole solution. Pass
-`FULL` to review the whole solution, or a path to scope it manually. Either way, say what scope you
-settled on.
+**Do not use `git merge-base HEAD @{u}`.** `@{u}` is this branch's own remote, so it resolves to the
+last *pushed* commit and the diff would silently omit every commit already pushed — reviewing a
+fraction of the story while appearing to review all of it. On worktree-created branches the upstream
+may also point at the epic rather than the branch's own remote, making it wrong twice.
+
+Ask the user which scope they want when the default doesn't work — empty diff, no resolvable base, or
+a diff big enough that running tools per-project is slower than doing the whole solution. Pass `FULL`
+to review the whole solution, or a path to scope it manually. **`FULL` is the unlikely case** — reach
+for it when onboarding to unfamiliar code or doing a deliberate sweep, not for ordinary pre-PR review.
+Either way, say what scope you settled on and which base it resolved to.
 
 ## Read the config first
 
