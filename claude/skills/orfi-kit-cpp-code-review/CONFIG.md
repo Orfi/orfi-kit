@@ -28,10 +28,13 @@ name; a missing key means that symbol kind is simply unchecked.
 
 ## Conventions this baseline encodes
 
-Derived from the reference projects, which are Qt desktop applications. **Treat them as one team's
-choices, not as C++ law** — naming, ownership style, and formatting all vary legitimately between
-projects, companies, and domains. Another repo's different answer is not a violation; it's that
-repo's contract, and it wins:
+**This is the house style** — the conventions the reference Qt projects actually use, extracted from
+their code rather than from any external style guide. Every row and example below comes from real
+project source. Use it as the default when a repo has no clang config of its own.
+
+It is still not C++ law: another repo may legitimately answer differently, and if the repo under
+review has its own encoded config, **that config wins** — see the top of this file. But absent such
+config, this is the style to prefer and to offer for adoption.
 
 | Symbol | Style | Example |
 |---|---|---|

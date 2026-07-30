@@ -451,9 +451,17 @@ explicitly framed as one team's choices rather than C++ law.
 But a repo following Google, LLVM, Qt house style, or a company standard has a different, equally
 valid answer, and right now the skill can only fall back to "prevailing pattern" for it.
 
-A future `CONVENTIONS` switch would let a caller name the style set (e.g. `GOOGLE`, `LLVM`, `QT`,
-`HOUSE`) and slot into the identical ladder: repo config wins, then a written convention, then the
-explicit argument, then prevailing pattern, then ask. The design constraint that makes the ownership
+A future `CONVENTIONS` switch would let a caller name the style set and slot into the identical ladder:
+repo config wins, then a written convention, then the explicit argument, then prevailing pattern, then
+ask.
+
+**Shape this would likely take:** `CONFIG.md` currently holds a single baseline — the house style, and
+the default. Rather than parameterising that one file, ship a `configs/` directory beside `SKILL.md`
+with one file per style set (`house.md`, `google.md`, `llvm.md`, …), keeping the house style as the
+default when no switch is given. The skill selects one; everything else about the ladder is unchanged.
+That keeps each style set readable on its own and avoids a single file trying to describe several
+mutually exclusive conventions at once. Note the installer copies whole skill directories, so a
+`configs/` subdirectory ships automatically with no installer change. The design constraint that makes the ownership
 switch safe applies here too — **the switch must only decide whether a *stylistic* difference is
 reportable; genuine defects stay findings in every mode.** For ownership that means leaks and
 use-after-free are always flagged; the naming equivalent is that a misleading or shadowing identifier
