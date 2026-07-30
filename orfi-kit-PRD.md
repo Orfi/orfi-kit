@@ -379,6 +379,17 @@ The implementer can verify completion against this list:
       companion `CONFIG.md` alongside `SKILL.md` in both.
 - [ ] **14 Claude command files** present in `claude/commands/`. Per-capability docs live in
       `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
+- [ ] **`orfi-kit-csharp-code-review` behaves as specified** — it is a *skill directory* rather than a
+      command file specifically so it can ship `CONFIG.md`; verify that companion file installs
+      alongside `SKILL.md` in copy **and** `--link` mode, and is removed on uninstall. The skill must
+      (a) declare `Bash` in `allowed-tools` — a read-only reviewer cannot run the enforcers, which is
+      the failure it exists to prevent; (b) use `dotnet format --verify-no-changes` only, never bare
+      `dotnet format`, since a review must not rewrite the code under review; (c) ground every style
+      verdict in the repo's own config via the authority ladder, treating the bundled `CONFIG.md`
+      baseline as a seed to adopt and never as authority to flag against a repo that has its own;
+      (d) resolve intent through the source-of-truth ladder, degrade to "completeness unverifiable"
+      when no rung is available, and never block or refuse because a document was absent; and
+      (e) depend on no other kit — plan discovery comes from this kit's own files or from the user.
 - [ ] **Hooks present** — `claude/hooks/orfi-kit-enforce-sync.sh` and
       `claude/hooks/orfi-kit-enforce-brevity.sh` in the repo; both install to `~/.claude/hooks/`;
       both remain executable.
