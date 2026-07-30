@@ -186,10 +186,19 @@ CheckOptions:
 naming rule whose absence lets a misnamed member pass review. `WarningsAsErrors` promotes it to a
 failure so it cannot be ignored, the same role `TreatWarningsAsErrors` plays on the C# side.
 
-Two notes on the exclusions. `misc-non-private-member-variables-in-classes` is disabled because Qt
+Notes on what's in and out. `misc-non-private-member-variables-in-classes` is disabled because Qt
 classes routinely expose public data members. `ConstantCase: UPPER_CASE` matches what these projects
 do (`BULLET_WIDTH`, `YAW`) rather than the `kPascalCase` some style guides prefer — if a repo uses
 `kConstant`, that repo wins.
+
+Deliberately **not** enabled: `cppcoreguidelines-owning-memory`, `cppcoreguidelines-pro-bounds-*`,
+`cppcoreguidelines-pro-type-reinterpret-cast`, and the broader `modernize-*` set. These flag raw
+pointers, manual `new`/`delete`, pointer arithmetic, and C-style casts as violations on principle.
+That's a legitimate style choice, not a defect — and Qt's parent-child ownership model is built on
+raw pointers, so enabling them would bury real findings under thousands of stylistic ones. The two
+`cppcoreguidelines-*` checks that are enabled catch uninitialized reads, which are genuine bugs.
+Real lifetime defects — leaks, double frees, use-after-free — are caught by `clang-analyzer-*` and
+`bugprone-*`, which are enabled.
 
 ## Enabling `clang-tidy` at all
 

@@ -179,10 +179,14 @@ partly unavailable. Tools won't find any of this:
 - **Internal correctness** — needs no spec, so this always runs. Trace the logic: edge cases, null and
   error paths, boundaries and off-by-ones, integer overflow, signed/unsigned mixing, uninitialized
   members, iterator invalidation, dangling references, use-after-move, unreachable branches.
-- **Memory and lifetime** — the C++-specific half of correctness. Ownership: who deletes what, and is
-  it clear from the types? Raw `new`/`delete` where a smart pointer or Qt parent-child ownership
-  belongs. Missing or incorrect virtual destructors on polymorphic bases. Rule of three/five/zero
-  violations. Leaks on early return or exception paths. Copies where a reference or move would do.
+- **Memory and lifetime** — the C++-specific half of correctness. Look for actual defects: leaks on
+  early-return or exception paths, double frees, use-after-free, dangling references, missing or
+  non-virtual destructors on polymorphic bases, rule of three/five/zero violations, mismatched
+  `new[]`/`delete`, and unclear ownership where nothing in the code says who frees what.
+  **Raw pointers and manual `new`/`delete` are not findings in themselves** — they're a legitimate
+  style, and Qt's parent-child ownership is built on them. Flag the leak, not the technique. Don't
+  suggest smart pointers as a stylistic upgrade; only raise them where they'd fix a real lifetime bug
+  the code actually has, and say which bug.
 - **Const correctness** — methods that don't mutate should be `const`; parameters that aren't modified
   should be `const&`. `mutable` used to work around a design problem rather than to express one.
 - **Header hygiene** — is each changed header self-contained? Would it compile if included first? Are
