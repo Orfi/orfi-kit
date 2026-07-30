@@ -56,6 +56,54 @@ The short version: `.editorconfig` for naming/format/usings, `Directory.Build.pr
 per-project `.csproj` overrides. `.editorconfig` cascades nearest-file-wins up to `root = true`, so
 read the one nearest the changed file.
 
+## Find the source of truth
+
+Correctness and completeness need something to compare the code against. "Every stated requirement
+implemented" assumes the requirements were stated *somewhere* — without that, you end up inferring
+intent from the diff and then judging the diff against your own inference. The code becomes its own
+spec and everything looks complete. That's the same circularity as asserting a naming rule from C#
+habit instead of `.editorconfig`.
+
+So find the intent before judging against it. Work down this ladder and stop at the first rung that
+gives you something usable. **Every rung is optional.** Any of them may be missing, stale, or
+unreadable — none of that is an error and none of it stops the review. Take the best rung available,
+say which one it was, and move on.
+
+1. **`ONBOARDING.md`** — this kit's own project reference, created by `/orfi-kit-init` under the
+   helper-files root (resolve the untracked `.orfi-kits/helper-files-root` pointer to locate it; if
+   the pointer is unset, this rung simply isn't available). Read it first: it names the **ADR / spec
+   location**, the **test & verification commands**, and the **security gate**, so it usually points
+   at the rungs below instead of making you guess at directory names.
+2. **`CLAUDE-SESSION-STATE.md`** (or `COPILOT-SESSION-STATE.md`) — the handoff file
+   `/orfi-kit-persist-state` writes, in the same root. A prior session often recorded what it was
+   building and which plan or ticket it was working from.
+3. **PRD or spec** — if one exists. Many repos have none; that's normal, not a defect.
+4. **ADRs** — read the governing record in full, not just its title.
+5. **A plan** — plans come in several shapes, and you don't need to know any tool's layout to use one.
+   Learn where it lives from `ONBOARDING.md`, the session-state file, or by asking the user; then read
+   its scope and done-when criteria. A plan file sitting in the repo is just an input to read —
+   whatever wrote it. Never invoke another kit to obtain one, and never require a particular format.
+6. **PR body, commit messages, or the linked ticket** — weaker, but they state intent.
+7. **Tests as executable spec** — tests encode intended behavior even when no prose does.
+8. **Public API contracts and their doc comments.**
+
+**If you can't find any of it, ask the user.** They usually know where intent lives even when the
+repo doesn't advertise it — a ticket, a wiki page, a design doc, or just a sentence describing what
+the change is meant to do. Ask before concluding it's absent; absence should be established, not
+assumed.
+
+Stay resilient throughout. A rung that's missing, empty, stale, or contradicts another rung is
+normal, not a failure: prefer the higher rung, note the contradiction, keep going. Never block, error
+out, or refuse to review because a document wasn't there — and never treat a document's absence as a
+defect in the code under review.
+
+If it's genuinely unavailable, **do what you can with what you have** — review, don't refuse. Most of
+this skill needs no spec at all: the whole tool lane, every internal-correctness check, and test
+coverage all work fine without one. Say **"completeness unverifiable — no source of truth found"**,
+name the strongest rung you did find (even if that was only the commit message), and carry on with
+the rest. A missing spec narrows the review; it doesn't stop it. Just don't quietly upgrade a
+narrowed review into a clean bill of health — and don't invent the intent you couldn't find.
+
 ## Run the tools
 
 Don't describe what a tool would report — run it and show what it said.
@@ -71,6 +119,10 @@ each hit. Use `--verify-no-changes` — a review reports, it doesn't rewrite the
 
 For tests, read the summary line rather than trusting the exit code, and report the real
 passed/failed/skipped counts.
+
+If the repo already collects coverage — a `coverlet` package, a `--collect` flag in its test script,
+or a coverage step in CI — run that and use the real numbers for the changed files. If it doesn't,
+don't bolt a collector on: assess coverage by reading the tests against the diff instead (below).
 
 Then two companions:
 
@@ -88,15 +140,26 @@ If a tool can't run, say so plainly and treat the result as unconfirmed rather t
 
 The more valuable half. Tools won't find any of this:
 
-- **Correctness** — does it do what it claims? Trace the logic: edge cases, null and error paths,
-  boundaries, concurrency, cancellation, disposal.
-- **Completeness** — every stated requirement implemented? Watch for half-done paths, leftover
-  TODOs, and new behavior with no tests. Check against the story or plan's done-when.
-- **Design / ADR conformance** — where ADRs exist, read the governing one properly and check the code
-  matches the decided architecture. Call out divergence. If deployed reality or golden files override
-  an ADR's literal text, that's fine — but note the contradiction rather than passing over it.
-- **PRD conformance** — does the change satisfy what it claims, without drifting into doing more or
-  less than asked?
+- **Internal correctness** — needs no spec, so this always runs. Trace the logic: edge cases, null and
+  error paths, boundaries and off-by-ones, concurrency, cancellation, disposal, swallowed exceptions,
+  unreachable branches. A bug that's self-evident from the code is still a bug.
+- **Intent correctness** — does it do the *right* thing, not just a consistent thing? This one needs a
+  source of truth from the step above. Name the rung you're judging against. Without any rung, say so
+  rather than substituting your own assumption about what the code was meant to do.
+- **Completeness** — every stated requirement implemented? Watch for half-done paths and leftover
+  TODOs. Check against the story or plan's done-when.
+- **Test coverage** — for each behavior the diff adds or changes, is there a test that would fail if
+  it broke? A green suite proves the *existing* tests pass, not that the new code is tested — a diff
+  can add three branches, leave every test passing, and be entirely uncovered. Name the changed paths
+  with no covering test. Check that new tests assert real behavior rather than restating the
+  implementation, and that the edge cases traced under Correctness have tests, not just the happy
+  path. Report uncovered paths by name; don't claim a coverage percentage unless a coverage tool
+  produced one. Reviewing coverage is in scope; writing the missing tests is a separate job.
+- **Design / ADR conformance** — if the step above turned up ADRs, check the code matches the decided
+  architecture and call out divergence. If deployed reality or golden files override an ADR's literal
+  text, that's fine — but note the contradiction rather than passing over it.
+- **PRD / plan conformance** — if a PRD, spec, or plan was found, does the change satisfy it without
+  drifting into doing more or less than asked?
 
 Cite `file:line` or tool output for findings. "Looks correct" without tracing isn't a finding.
 
@@ -128,6 +191,8 @@ enforce against a repo that already has its own.
 ## Report
 
 - **Scope** — what was reviewed, and the base it diffed against.
+- **Sources** — the config you read, and which source-of-truth rung you judged intent against (or
+  that none was found). A reader should never have to guess what the review was measured against.
 - **Tools** — each command, its verdict, the output. Anything that couldn't run, and why.
 - **Findings** — most important first, with `file:line`. For style findings, which authority rung
   and which config key.
