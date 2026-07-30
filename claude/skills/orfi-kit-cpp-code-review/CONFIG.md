@@ -28,9 +28,10 @@ name; a missing key means that symbol kind is simply unchecked.
 
 ## Conventions this baseline encodes
 
-**This is the house style** — the conventions the reference Qt projects actually use, extracted from
-their code rather than from any external style guide. Every row and example below comes from real
-project source. Use it as the default when a repo has no clang config of its own.
+**This is the house style** — the conventions the reference Qt projects use, extracted from their code
+rather than from any external style guide, plus one deliberate change: **filenames are kebab-case**
+(the existing projects use `snake_case`; new files should be kebab). Use this as the default when a
+repo has no clang config of its own.
 
 It is still not C++ law: another repo may legitimately answer differently, and if the repo under
 review has its own encoded config, **that config wins** — see the top of this file. But absent such
@@ -43,19 +44,37 @@ config, this is the style to prefer and to offer for adoption.
 | Private / protected members | `m_` + `camelCase` | `m_floatBulletInsertPoint`, `m_sourceModel` |
 | Static class members | `s_` + `camelCase` | `s_instanceCount` |
 | Local variables, parameters | `camelCase` | `errorMessage` |
-| Namespaces, file names | `snake_case` | `math_operation.h` |
+| File names | `kebab-case` | `math-operation.h`, `vocab-manager.cpp` |
+| Namespaces | `snake_case` | `math_graph` |
 | Constants | `SCREAMING_SNAKE` | `BULLET_WIDTH`, `PEN_WIDTH` |
 | Macros | `SCREAMING_SNAKE` | `QT_DEPRECATED_WARNINGS` |
 
-Also standard in these projects: 4-space indentation, `#ifndef` include guards (not `#pragma once`),
-Doxygen `/** @brief ... */` blocks on public and protected declarations, and file-local constants in
-an anonymous namespace rather than as `static` globals.
+Also standard: 4-space indentation, `#ifndef` include guards (not `#pragma once`), Doxygen
+`/** @brief ... */` blocks on public and protected declarations, and file-local constants in an
+anonymous namespace rather than as `static` globals.
+
+Two notes on the split between file names and namespaces. **Namespaces stay `snake_case` because
+kebab-case is impossible** — a hyphen is not a valid character in a C++ identifier, so `namespace
+math-graph` will not compile. And an **include guard derived from a kebab-case filename converts the
+hyphens to underscores**, since macro names have the same restriction: `math-operation.h` guards as
+`MATH_OPERATION_H`.
+
+**No tool enforces filenames.** `clang-tidy`'s `readability-identifier-naming` covers identifiers
+only, and `clang-format` doesn't look at paths at all — there is no check to enable. Filename
+convention is therefore a judgment-lane item, assessed by reading the diff, and it sits at rung 3
+(prevailing pattern) rather than rung 1 unless a project doc states it explicitly.
+
+**Existing code uses `snake_case` filenames.** The reference projects predate this decision
+(`math_operation.h`, `vocabmanager.h`), so a repo mid-transition will legitimately contain both. Flag
+kebab-case as the target for **new** files; do not flag existing `snake_case` files as violations, and
+never suggest a bulk rename as a review finding — renaming headers churns every include site and is a
+refactor, not a review outcome.
 
 ## Include order
 
 Most specific to least specific, so every header proves it is self-contained:
 
-1. **Related header** — `user_processor.h` from `user_processor.cpp`
+1. **Related header** — `user-processor.h` from `user-processor.cpp`
 2. **Project headers** — other headers from this project
 3. **Qt framework headers** — `<QString>`, `<QObject>`
 4. **Third-party libraries**
