@@ -189,10 +189,12 @@ CheckOptions:
 naming rule whose absence lets a misnamed member pass review. `WarningsAsErrors` promotes it to a
 failure so it cannot be ignored, the same role `TreatWarningsAsErrors` plays on the C# side.
 
-The naming values below are this baseline's opinion, not a standard. `m_`/`s_` prefixes, `camelBack`
-methods, and `UPPER_CASE` constants are common but far from universal — plenty of good C++ uses
-`snake_case` methods, trailing `_` members, or `kPascalCase` constants. If the repo under review
-disagrees, the repo is right.
+The naming values below are this baseline's opinion, not a standard. They mirror the reference
+projects: `m_`/`s_` prefixes, `camelBack` methods, `UPPER_CASE` constants. Other style sets answer
+differently — Google's C++ guide uses `PascalCase` methods and `kPascalCase` constants; LLVM uses
+`camelBack` functions with trailing-underscore members; some houses use `snake_case` throughout.
+None of those is wrong, and none of them is what this baseline encodes. **If the repo under review
+disagrees with the values below, the repo is right.**
 
 Notes on what's in and out. `misc-non-private-member-variables-in-classes` is disabled because Qt
 classes routinely expose public data members. `ConstantCase: UPPER_CASE` matches what these projects

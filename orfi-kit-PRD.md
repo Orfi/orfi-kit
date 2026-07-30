@@ -446,7 +446,8 @@ one, because the answer varies by team, company, domain, and era. The resolution
 
 **The same mechanism should generalize to naming and formatting conventions.** Today `CONFIG.md`
 ships one baseline — `m_`/`s_` prefixes, `camelBack` methods, `UPPER_CASE` constants, Allman braces —
-drawn from the reference Qt projects, and explicitly framed as one team's choices rather than C++ law.
+drawn from the reference Qt projects (these are the conventions those projects actually use), and
+explicitly framed as one team's choices rather than C++ law.
 But a repo following Google, LLVM, Qt house style, or a company standard has a different, equally
 valid answer, and right now the skill can only fall back to "prevailing pattern" for it.
 
