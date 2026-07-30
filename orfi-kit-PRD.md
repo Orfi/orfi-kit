@@ -428,4 +428,55 @@ The implementer can verify completion against this list:
 
 ---
 
+## 8. Future work
+
+Ideas deliberately deferred. None of these is required for the kit to be complete; each is recorded
+so the reasoning isn't lost.
+
+### 8.1 A conventions switch, resolved the same way ownership is
+
+`orfi-kit-cpp-code-review` resolves the **memory ownership style** per project rather than assuming
+one, because the answer varies by team, company, domain, and era. The resolution order is:
+
+1. The repo's own encoded config (`.clang-tidy` enabling `cppcoreguidelines-owning-memory`)
+2. A written project or org convention (ADR, coding standards, `ONBOARDING.md`, `CLAUDE.md`)
+3. An explicit argument (`RAW` / `SMART`)
+4. The prevailing pattern in the file being changed
+5. Asking the user
+
+**The same mechanism should generalize to naming and formatting conventions.** Today `CONFIG.md`
+ships one baseline — `m_`/`s_` prefixes, `camelBack` methods, `UPPER_CASE` constants, Allman braces —
+drawn from the reference Qt projects, and explicitly framed as one team's choices rather than C++ law.
+But a repo following Google, LLVM, Qt house style, or a company standard has a different, equally
+valid answer, and right now the skill can only fall back to "prevailing pattern" for it.
+
+A future `CONVENTIONS` switch would let a caller name the style set (e.g. `GOOGLE`, `LLVM`, `QT`,
+`HOUSE`) and slot into the identical ladder: repo config wins, then a written convention, then the
+explicit argument, then prevailing pattern, then ask. The design constraint that makes the ownership
+switch safe applies here too — **the switch must only decide whether a *stylistic* difference is
+reportable; genuine defects stay findings in every mode.** For ownership that means leaks and
+use-after-free are always flagged; the naming equivalent is that a misleading or shadowing identifier
+is a real problem regardless of which case convention is in force.
+
+Worth doing the same for the C# sibling if it lands, though the need is weaker there: `.editorconfig`
+is near-universal in C#, so rung 1 is usually populated and the guessing problem barely arises. In
+C++ rung 1 is usually empty, which is exactly why the ladder matters more.
+
+### 8.2 Run both review skills against real code
+
+Neither `orfi-kit-csharp-code-review` nor `orfi-kit-cpp-code-review` has been executed against an
+actual diff. Both are verified **structurally** — install/uninstall in copy and `--link` mode,
+`CONFIG.md` shipping alongside `SKILL.md`, installer arrays resolving, per-runtime divergence limited
+to the intended differences — but their *behavior* is unproven.
+
+Two consequences to settle when that happens:
+
+- The **Example** section in each `docs/skills/` page is hand-written to show the report shape. Replace
+  it with genuine captured output.
+- The C++ tool lane assumes `clang-format` / `clang-tidy` / `compile_commands.json` may all be absent
+  and degrades accordingly. That degradation path is the *common* case in the reference projects, so it
+  is the first thing worth exercising — not the happy path.
+
+---
+
 *End of orfi-kit PRD.*
