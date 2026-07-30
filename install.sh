@@ -15,7 +15,7 @@
 #
 # Claude Code + OpenCode share one skill source (claude/skills) and the
 # command files (claude/commands). Copilot uses its OWN source (copilot/skills,
-# 20 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
+# 21 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
 # skill IS its slash command).
 #
 # Conflict rule (OpenCode reads BOTH ~/.claude/skills and ~/.config/opencode/skills):
@@ -51,12 +51,13 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 BREVITY_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-brevity.sh"
 BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
 
-# The 6 Claude skill dirs (shared by Claude Code + OpenCode).
-CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs orfi-kit-csharp-code-review)
+# The 7 Claude skill dirs (shared by Claude Code + OpenCode).
+CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs orfi-kit-csharp-code-review orfi-kit-cpp-code-review)
 
-# The 20 Copilot skill dirs.
+# The 21 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
-  orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-csharp-code-review
+  orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-cpp-code-review
+  orfi-kit-csharp-code-review
   orfi-kit-enforce-guardrails
   orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-init orfi-kit-load-state
   orfi-kit-persist-state orfi-kit-run-codegraph-phase

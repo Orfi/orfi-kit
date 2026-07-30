@@ -14,8 +14,8 @@ commands, and hooks for AI-augmented development. It packages a team's day-to-da
 - **git conventions** — commit message / branch / PR naming format
 - **guardrails** — foundational behavioral constraints (honesty, safe VCS, clear comms)
 - **commit** — assemble and write a conventional commit
-- **code review** — structured review of a diff, plus a C#-specific review that runs the enforcing
-  tools and grounds style verdicts in the repo's own config
+- **code review** — structured review of a diff, plus C#- and C++-specific reviews that run the
+  enforcing tools and ground style verdicts in the repo's own config
 - **session state** — persist / load working context across sessions
 - **test runners** — unit, integration, and codegraph phase test commands
 - **scrum-poker** — Fibonacci planning-poker estimation of Jira tickets (via Atlassian MCP)
@@ -109,6 +109,9 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
 - `orfi-kit-csharp-code-review/`  (contains `SKILL.md`, `CONFIG.md`) — user-invoked rather than
   auto-triggered; it is a skill directory (not a command file) because it ships the companion
   `CONFIG.md` that a single command file could not carry.
+- `orfi-kit-cpp-code-review/`  (contains `SKILL.md`, `CONFIG.md`) — the C++ sibling of the above,
+  same rationale for being a skill directory. Runs `clang-format` / `clang-tidy` / build / tests
+  instead of the .NET toolchain, and adds an opt-in `SAFETY` scope for the NASA/JPL rules.
 
 ### 3.3 Claude Code — hooks (from `claude-tools/hooks/`)
 
@@ -122,13 +125,14 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
 
 ### 3.4 Copilot — skills (from `copilot-tools/skills/`)
 
-**20 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
-command**, so the Claude *commands* become Copilot *skills*, giving 6 Claude skills + 14 Claude
-commands = 20 Copilot skills.)
+**21 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
+command**, so the Claude *commands* become Copilot *skills*, giving 7 Claude skills + 14 Claude
+commands = 21 Copilot skills.)
 
 - `orfi-kit-cleanup-state/`
 - `orfi-kit-code-review/`
 - `orfi-kit-commit/`
+- `orfi-kit-cpp-code-review/`
 - `orfi-kit-csharp-code-review/`
 - `orfi-kit-enforce-guardrails/`
 - `orfi-kit-git-conventions/`
@@ -171,10 +175,10 @@ commands = 20 Copilot skills.)
 orfi-kit/
   claude/
     commands/   <- the 14 orfi-kit-*.md command files
-    skills/     <- the 6 orfi-kit-* Claude skill dirs
+    skills/     <- the 7 orfi-kit-* Claude skill dirs
     hooks/      <- orfi-kit-enforce-sync.sh, orfi-kit-enforce-brevity.sh
   copilot/
-    skills/     <- the 20 orfi-kit-* Copilot skill dirs (Copilot's own copies)
+    skills/     <- the 21 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
   docs/
     skills/     <- one .md per capability (repo docs; never installed to a runtime)
@@ -249,9 +253,9 @@ skills get **exactly ONE home per machine**:
 
 ### 5.5 Skill sources per runtime
 
-- **Claude Code + OpenCode share the SAME skill source** → `claude/skills` (the 6 Claude skill
+- **Claude Code + OpenCode share the SAME skill source** → `claude/skills` (the 7 Claude skill
   dirs). They also share the OpenCode conflict rule above.
-- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 20 skill dirs) and its own
+- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 21 skill dirs) and its own
   home `~/.copilot/skills`. Independent: **no command file** (the skill is its own slash command).
 
 ### 5.6 Commands (Claude Code / OpenCode only)
@@ -332,10 +336,10 @@ e.g. `/orfi-kit-commit` or `/orfi-kit-code-review`.
 
 ### 5.9 The SKILLS array
 
-The array the installer iterates over is the **20 `orfi-kit-*` skill names** (§3.4). Note that the
-Claude side ships only 6 of these as *skills* and the other 14 as *commands* — structure the
-installer so the Claude path installs 6 skills + 14 commands, while the Copilot path installs all
-20 as skills. Keep a `SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS`
+The array the installer iterates over is the **21 `orfi-kit-*` skill names** (§3.4). Note that the
+Claude side ships only 7 of these as *skills* and the other 14 as *commands* — structure the
+installer so the Claude path installs 7 skills + 14 commands, while the Copilot path installs all
+21 as skills. Keep a `SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS`
 array for the 14 Claude command files.
 
 ---
@@ -374,8 +378,8 @@ The repo `README.md` must:
 
 The implementer can verify completion against this list:
 
-- [ ] **All skills present on both runtimes** — `claude/skills` has the 6 Claude skill dirs;
-      `copilot/skills` has all 20 Copilot skill dirs. `orfi-kit-csharp-code-review` ships its
+- [ ] **All skills present on both runtimes** — `claude/skills` has the 7 Claude skill dirs;
+      `copilot/skills` has all 21 Copilot skill dirs. `orfi-kit-csharp-code-review` ships its
       companion `CONFIG.md` alongside `SKILL.md` in both.
 - [ ] **14 Claude command files** present in `claude/commands/`. Per-capability docs live in
       `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
@@ -390,6 +394,15 @@ The implementer can verify completion against this list:
       (d) resolve intent through the source-of-truth ladder, degrade to "completeness unverifiable"
       when no rung is available, and never block or refuse because a document was absent; and
       (e) depend on no other kit — plan discovery comes from this kit's own files or from the user.
+- [ ] **`orfi-kit-cpp-code-review` behaves as specified** — same shape as its C# sibling, with the
+      C++ toolchain: `clang-format --dry-run -Werror` (never `-i`), `clang-tidy` (only meaningful
+      with a `compile_commands.json` — it must **not** reconfigure the build to create one), then the
+      project's own build and test commands. It must (a) exclude vendored and generated code and say
+      which paths it skipped; (b) treat missing `.clang-format` / `.clang-tidy` as the *normal* case,
+      falling back to the prevailing pattern of the file being changed rather than general C++ norms;
+      (c) keep the safety-critical (`SAFETY`) rules **opt-in**, since ordinary application C++ violates
+      them by design; and (d) cover the C++-specific judgment lanes — memory/lifetime, const
+      correctness, and header hygiene.
 - [ ] **Hooks present** — `claude/hooks/orfi-kit-enforce-sync.sh` and
       `claude/hooks/orfi-kit-enforce-brevity.sh` in the repo; both install to `~/.claude/hooks/`;
       both remain executable.
