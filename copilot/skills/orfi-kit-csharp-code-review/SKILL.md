@@ -103,6 +103,12 @@ The more valuable half. Tools won't find any of this:
 
 Cite `file:line` or tool output for findings. "Looks correct" without tracing isn't a finding.
 
+**Large diffs — split the work.** When the diff is too big for one pass, break it up deliberately:
+by file, or by dimension (correctness, completeness, ADR/PRD conformance). Carry the config you read
+above into each pass so every judgment stays grounded in the repo's rules. Then consolidate — merge
+overlapping findings, keep the most precise citation, and rank the combined set once. A pile of
+unranked per-file reports isn't a review.
+
 ## Where a style finding gets its authority
 
 If a convention isn't encoded anywhere, there's nothing to enforce — and inventing a rule from

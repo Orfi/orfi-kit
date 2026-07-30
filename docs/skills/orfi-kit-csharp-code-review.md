@@ -35,6 +35,7 @@ Optional scope argument: `DIFF` (default), `FULL` (whole solution), or an explic
 - **Unconfirmed ≠ clean** — if a tool can't run, it says so and treats the result as unconfirmed rather than passing.
 - **Authority ladder for style findings** — every style finding names what it rests on: (1) repo config, citing the key — the only rung that yields a real violation; (2) analyzer/SDK default in effect, citing the diagnostic ID; (3) prevailing pattern in the codebase, cited with `file:line` and reported as an unenforced convention, non-blocking; (4) nothing — stays silent. It never fills rung 4 with textbook norms, which is the mistake it exists to prevent.
 - **Missing `.editorconfig`** — mentioned as a recommendation (CI can't enforce style without one), not a defect in the change under review. `dotnet format`'s whitespace pass still works from built-in defaults, and the judgment lane is unaffected.
+- **Large diffs fan out** — when a diff is too big for one pass, it splits the work by file or by dimension (correctness, completeness, ADR/PRD conformance), passes the config it read into each pass so judgments stay grounded in the repo's rules, then consolidates: overlapping findings merged, most precise citation kept, and the combined set ranked once. On Claude Code this dispatches parallel subagents; on Copilot it's a deliberate sequential split.
 - **Security is delegated, not reimplemented** — security analysis needs adversarial threat-modeling and its own severity rubric, so the skill records a verdict from a dedicated security review rather than improvising one inline. Keeping one copy of that logic avoids drift between two.
 
 ## Per-runtime differences
@@ -43,6 +44,7 @@ Optional scope argument: `DIFF` (default), `FULL` (whole solution), or an explic
 | --- | --- | --- |
 | Doc-comment check | invokes `/orfi-kit-xml-docs` | uses the `orfi-kit-xml-docs` skill |
 | Security item | invokes `/security-review`; records `skipped (unavailable)` if absent | no bundled security-review skill — records `not run` and suggests a dedicated review before merge |
+| Large diffs | dispatches parallel subagents (one per file or dimension), then consolidates | splits the pass deliberately by file or dimension, then consolidates |
 
 ## `CONFIG.md`
 

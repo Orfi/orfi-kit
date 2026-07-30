@@ -1,7 +1,7 @@
 ---
 name: orfi-kit-csharp-code-review
 user-invocable: true
-allowed-tools: Bash(*), Read(*), Grep(*), Glob(*)
+allowed-tools: Bash(*), Read(*), Grep(*), Glob(*), Agent(*)
 description: "Run a C# code review that executes the enforcing tools (dotnet format / build / test) and grounds style verdicts in the repo's own config rather than general C# norms. Invoke with /orfi-kit-csharp-code-review [DIFF|FULL|<path>]."
 ---
 
@@ -99,6 +99,13 @@ The more valuable half. Tools won't find any of this:
   less than asked?
 
 Cite `file:line` or tool output for findings. "Looks correct" without tracing isn't a finding.
+
+**Large diffs — fan out.** When the diff is too big to hold in one pass, dispatch subagents in
+parallel: one per changed file, or one per dimension (correctness, completeness, ADR/PRD
+conformance), then consolidate. Give each agent the config you read in the step above so they judge
+against the repo's rules rather than their own instincts. Merge overlapping findings, keep the
+citation from whichever pass traced it most precisely, and rank the consolidated set once — a pile
+of unranked per-file reports isn't a review.
 
 ## Where a style finding gets its authority
 
