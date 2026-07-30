@@ -18,7 +18,7 @@ User-invoked; it never runs on its own. Typically before opening a PR.
 /orfi-kit-cpp-code-review
 ```
 
-Optional scope argument: `DIFF` (default), `FULL` (whole project), or an explicit path.
+Optional arguments: `DIFF` (default), `FULL` (whole project), or an explicit path — plus `RAW` or `SMART` to force the ownership style, which can be combined with a scope.
 
 ## Prerequisites
 
@@ -41,7 +41,8 @@ Optional scope argument: `DIFF` (default), `FULL` (whole project), or an explici
 - **Degrades rather than refuses** — with no source of truth it says "completeness unverifiable", names the strongest rung it did find, and reviews everything that doesn't need a spec. Missing tooling narrows the review the same way; it never blocks or errors because a tool or document was absent.
 - **Correctness splits in two** — *internal* correctness needs no spec and always runs (edge cases, null and error paths, overflow, signed/unsigned mixing, uninitialized members, iterator invalidation, dangling references, use-after-move). *Intent* correctness requires a rung from the ladder, and the review names which one it judged against.
 - **C++-specific judgment** — memory and lifetime (leaks on early-return and exception paths, double frees, use-after-free, dangling references, non-virtual destructors on polymorphic bases, rule of three/five/zero, unclear ownership), const correctness, and header hygiene (self-containment, include order, includes that should be forward declarations, guards present and matching).
-- **Raw pointers are a style, not a defect** — manual `new`/`delete` and raw pointers are never findings in themselves; Qt's parent-child ownership is built on them. It flags the leak, not the technique, and won't suggest smart pointers as a stylistic upgrade — only where they'd fix a real lifetime bug, naming the bug. The baseline `.clang-tidy` deliberately omits `cppcoreguidelines-owning-memory`, `pro-bounds-*`, and the broad `modernize-*` set for the same reason.
+- **Ownership style is resolved per project, not assumed** — raw pointers versus smart pointers varies by team, company, domain, and era, so the skill decides per review rather than carrying a default. Resolution order: the repo's `.clang-tidy` (an enabled `cppcoreguidelines-owning-memory` is an encoded policy and wins outright) → a written project or org convention (ADR, coding standards, `ONBOARDING.md`, `CLAUDE.md`) → an explicit `RAW` / `SMART` argument → the prevailing pattern in the file being changed → **asking you**, when it's genuinely mixed. It reports which mode it used. In `RAW`, manual `new`/`delete` is a legitimate style and never a finding; in `SMART`, raw *ownership* becomes a **non-blocking nit** with the fitting smart pointer named. Raw non-owning/observer pointers are never flagged in either mode.
+- **Real defects are findings in every mode** — leaks on early-return and exception paths, double frees, use-after-free, dangling references, non-virtual destructors on polymorphic bases, rule of three/five/zero violations, mismatched `new[]`/`delete`, and undeterminable ownership. `SMART` must never become a way to bury bugs under style noise, and `RAW` is never permission to leak. The baseline `.clang-tidy` omits `cppcoreguidelines-owning-memory`, `pro-bounds-*`, and the broad `modernize-*` set so a style preference can't drown out these.
 - **Test coverage is reviewed, not assumed** — a green suite proves the existing tests pass, not that the new code is tested. It names changed paths with no covering test and won't claim a coverage percentage no tool produced.
 - **Authority ladder for style findings** — every style finding names what it rests on: (1) repo config, citing the key or check name — the only rung that yields a real violation; (2) tool default in effect, citing the check name; (3) prevailing pattern, cited with `file:line` and reported as an unenforced convention, non-blocking; (4) nothing — stays silent. Rung 1 is usually empty in C++, so rung 3 does most of the work — and it prefers the pattern in the **file being changed** over a project-wide average, since C++ projects often mix styles across modules.
 - **Large diffs fan out** — splits by file or by dimension (correctness, memory/lifetime, headers, completeness), passes the config it read into each pass, then consolidates and ranks once. On Claude Code this dispatches parallel subagents; on Copilot it's a deliberate sequential split.
@@ -59,7 +60,7 @@ Optional scope argument: `DIFF` (default), `FULL` (whole project), or an explici
 
 The skill ships a `CONFIG.md` alongside `SKILL.md`, installed with it. It lists where C++ rules come from and what each source decides, then provides a baseline `.clang-format` and `.clang-tidy`.
 
-The baseline is a **seed to adopt, never a rule to enforce**. Where a repo has its own config, that config is the contract and the baseline is only a comparison point. This matters more in C++ than C#: since most repos have no clang config, a baseline treated as authority would effectively become "textbook norms with extra steps" — the original failure mode wearing a different hat.
+The baseline encodes one team's choices, not C++ law — naming, ownership, and formatting all vary legitimately between projects and companies, and another repo's different answer is that repo's contract, not a violation. So the baseline is a **seed to adopt, never a rule to enforce**. Where a repo has its own config, that config is the contract and the baseline is only a comparison point. This matters more in C++ than C#: since most repos have no clang config, a baseline treated as authority would effectively become "textbook norms with extra steps" — the original failure mode wearing a different hat.
 
 The encoded conventions come from real Qt desktop projects: `PascalCase` types, `camelCase` functions and methods, `m_` private/protected members, `s_` statics, `snake_case` namespaces and filenames, `SCREAMING_SNAKE` constants and macros, 4-space indentation, `#ifndef` guards, and Doxygen `/** @brief */` blocks. Include order runs most-specific to least: related header → project → Qt → third-party → standard library → C system headers, with the self-header rule that a header only compiling because something preceded it is broken.
 
@@ -75,6 +76,7 @@ Scope: DIFF vs origin/master (base 9f8e7d6) — 3 changed files
 Config: none found (.clang-format, .clang-tidy both absent)
         CMakeLists.txt — C++17, no -Werror
 Intent: CLAUDE.md → design/ADR.md (rung 5 of 9)
+Ownership: RAW (prevailing pattern — Qt parent-child, no smart pointers in module)
 
 clang-format    not run (no .clang-format in repo)
 clang-tidy      not run (no .clang-tidy, no compile_commands.json)
@@ -83,7 +85,8 @@ ctest           12 passed, 0 failed
 
 BLOCKING
   1. src/exporter.cpp:88 — early return leaks the QPdfWriter allocated at :71.
-     Exception path at :79 leaks it too. Use std::unique_ptr or give it a parent.
+     Exception path at :79 leaks it too. Give it a QObject parent, or delete on
+     both paths. (A leak — a finding in every ownership mode.)
   2. src/exporter.h:23 — polymorphic base with public non-virtual destructor;
      deleting through a base pointer is undefined.
 

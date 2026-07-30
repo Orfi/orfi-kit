@@ -1,6 +1,6 @@
 ---
 name: orfi-kit-cpp-code-review
-description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|<path>]."
+description: "Run a C++ code review that executes the enforcing tools (clang-format / clang-tidy / build / tests) and grounds style verdicts in the repo's own config rather than general C++ norms. Invoke with /orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|<path>]."
 ---
 
 # orfi-kit-cpp-code-review
@@ -8,7 +8,7 @@ description: "Run a C++ code review that executes the enforcing tools (clang-for
 Review C++ changes by **running the tools that enforce the rules**, then judging the things tools
 can't see.
 
-Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|<path>]`. This does not run on its
+Invoked on request — `/orfi-kit-cpp-code-review [DIFF|FULL|RAW|SMART|<path>]`. This does not run on its
 own; it's a review you ask for, typically before opening a PR.
 
 Read-only with respect to your source: it runs tools and reports, and never rewrites the code under
@@ -43,7 +43,8 @@ git diff --name-only "$BASE"...HEAD -- '*.cpp' '*.h' '*.hpp' '*.cc' '*.cxx' '*.i
 
 Ask the user which scope they want when the default doesn't work — empty diff, no resolvable base, or
 a diff big enough that whole-project tooling is cheaper. `FULL` reviews the whole project; a path
-scopes it manually. Either way, say what scope you settled on.
+scopes it manually; `RAW` and `SMART` set the ownership style (see the next section) and can be
+combined with a scope. Either way, say what scope you settled on.
 
 **Exclude vendored code.** C++ projects routinely check in third-party sources — `glm/`, `third_party/`,
 `external/`, `vendor/`, single-header libraries. Reviewing those is noise: they follow their upstream's
@@ -110,6 +111,66 @@ coverage all work fine without one. Say **"completeness unverifiable — no sour
 name the strongest rung you did find (even if that was only the commit message), and carry on with
 the rest. A missing spec narrows the review; it doesn't stop it. Just don't quietly upgrade a
 narrowed review into a clean bill of health — and don't invent the intent you couldn't find.
+
+## Decide the ownership style — then check against it
+
+C++ has two legitimate memory idioms, and reviewing code against the wrong one produces noise instead
+of findings. Establish which one applies **before** the judgment lane, the same way you establish the
+config and the source of truth.
+
+This is a **per-project decision**, and it varies by team, company, domain, and era. Embedded and
+game code often stays with raw pointers deliberately; a modern service codebase may mandate smart
+pointers; a Qt application sits naturally in between because the framework's ownership model is built
+on raw parent-child pointers. There is no correct global answer, so never carry a default from one
+project into another — resolve it fresh, from the project in front of you:
+
+1. **The repo's `.clang-tidy`** — if it enables `cppcoreguidelines-owning-memory` (or a comparable
+   check), the repo has *encoded* a smart-pointer policy. That's a real rule and it wins over
+   everything below, including an explicit argument.
+2. **A written project or org convention** — an ADR, a coding-standards doc, `ONBOARDING.md`, or a
+   project instruction file (`CLAUDE.md` / `AGENTS.md`) that states the memory policy. You already read
+   these for the source of truth; reuse what they said. A stated convention outranks whatever the code
+   currently happens to do, since code lags policy.
+3. **An explicit argument** — `RAW` or `SMART` (see below).
+4. **The prevailing pattern** — read the module you're reviewing. Does it use `std::unique_ptr` /
+   `std::shared_ptr` for ownership, or raw pointers with manual `delete` and Qt parent-child
+   ownership? Follow what's there. This is rung 3 of the authority ladder applied to memory. Prefer
+   the pattern in the file being changed over a project-wide average — a large C++ codebase often
+   contains both, module by module.
+5. **Ask the user** — only when it's genuinely mixed or ambiguous, e.g. new smart-pointer code sitting
+   beside raw-pointer code with no clear direction. One question: *"Is raw-pointer ownership fine
+   here, or should this move to smart pointers?"* Take the answer for this review; don't assume it
+   holds for the next project.
+
+Then say which mode you settled on and why, in the report's Sources line.
+
+### The two modes
+
+**`RAW` — raw pointers are fine.** Manual `new`/`delete`, raw pointers, and Qt parent-child ownership
+are a legitimate style, not defects. Do **not** flag them, and do **not** suggest smart pointers as a
+stylistic upgrade. Mention a smart pointer only where it would fix a specific lifetime bug the code
+actually has, and name that bug.
+
+**`SMART` — prefer smart pointers.** Raw *ownership* becomes reportable as a **non-blocking nit**:
+a raw pointer that owns its allocation, where `std::unique_ptr` or `std::shared_ptr` would express the
+lifetime in the type. Cite `file:line` and say which smart pointer fits. Still non-blocking — it's a
+style preference, not a correctness failure, and blocking would make this mode unusable on any
+existing codebase. Raw *non-owning* pointers and references are never flagged in either mode: an
+observer pointer owns nothing and has nothing to convert.
+
+### What both modes always flag
+
+The mode changes only whether the *technique* is reportable. Genuine lifetime defects are findings
+under either mode, without exception — a "smart pointers only" setting must never become a way to
+bury bugs under style noise, and a `RAW` setting must never become permission to leak:
+
+- Leaks on early-return or exception paths
+- Double frees and use-after-free
+- Dangling references and pointers outliving their target
+- Missing or non-virtual destructors on polymorphic bases
+- Rule of three/five/zero violations
+- Mismatched `new[]` / `delete`, or `malloc` / `delete`
+- Ownership no reader can determine from the code
 
 ## Run the tools
 
@@ -179,14 +240,8 @@ partly unavailable. Tools won't find any of this:
 - **Internal correctness** — needs no spec, so this always runs. Trace the logic: edge cases, null and
   error paths, boundaries and off-by-ones, integer overflow, signed/unsigned mixing, uninitialized
   members, iterator invalidation, dangling references, use-after-move, unreachable branches.
-- **Memory and lifetime** — the C++-specific half of correctness. Look for actual defects: leaks on
-  early-return or exception paths, double frees, use-after-free, dangling references, missing or
-  non-virtual destructors on polymorphic bases, rule of three/five/zero violations, mismatched
-  `new[]`/`delete`, and unclear ownership where nothing in the code says who frees what.
-  **Raw pointers and manual `new`/`delete` are not findings in themselves** — they're a legitimate
-  style, and Qt's parent-child ownership is built on them. Flag the leak, not the technique. Don't
-  suggest smart pointers as a stylistic upgrade; only raise them where they'd fix a real lifetime bug
-  the code actually has, and say which bug.
+- **Memory and lifetime** — check against the ownership mode you settled on above. The defect list
+  there applies in every mode; whether raw ownership itself is reportable depends on the mode.
 - **Const correctness** — methods that don't mutate should be `const`; parameters that aren't modified
   should be `const&`. `mutable` used to work around a design problem rather than to express one.
 - **Header hygiene** — is each changed header self-contained? Would it compile if included first? Are
@@ -242,8 +297,9 @@ a starting point; it's a seed to adopt, not a rule to enforce against a repo tha
 
 - **Scope** — what was reviewed, the base it diffed against, and which paths you excluded as vendored
   or generated.
-- **Sources** — the config you read (or that none existed), and which source-of-truth rung you judged
-  intent against. A reader should never have to guess what the review was measured against.
+- **Sources** — the config you read (or that none existed), which source-of-truth rung you judged
+  intent against, and the ownership mode you resolved plus where it came from. A reader should never
+  have to guess what the review was measured against.
 - **Tools** — each command, its verdict, the output. Anything that couldn't run, and why.
 - **Findings** — most important first, with `file:line`. For style findings, which authority rung and
   which config key or check name.

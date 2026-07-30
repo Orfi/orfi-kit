@@ -28,7 +28,10 @@ name; a missing key means that symbol kind is simply unchecked.
 
 ## Conventions this baseline encodes
 
-Derived from the reference projects, which are Qt desktop applications:
+Derived from the reference projects, which are Qt desktop applications. **Treat them as one team's
+choices, not as C++ law** — naming, ownership style, and formatting all vary legitimately between
+projects, companies, and domains. Another repo's different answer is not a violation; it's that
+repo's contract, and it wins:
 
 | Symbol | Style | Example |
 |---|---|---|
@@ -186,6 +189,11 @@ CheckOptions:
 naming rule whose absence lets a misnamed member pass review. `WarningsAsErrors` promotes it to a
 failure so it cannot be ignored, the same role `TreatWarningsAsErrors` plays on the C# side.
 
+The naming values below are this baseline's opinion, not a standard. `m_`/`s_` prefixes, `camelBack`
+methods, and `UPPER_CASE` constants are common but far from universal — plenty of good C++ uses
+`snake_case` methods, trailing `_` members, or `kPascalCase` constants. If the repo under review
+disagrees, the repo is right.
+
 Notes on what's in and out. `misc-non-private-member-variables-in-classes` is disabled because Qt
 classes routinely expose public data members. `ConstantCase: UPPER_CASE` matches what these projects
 do (`BULLET_WIDTH`, `YAW`) rather than the `kPascalCase` some style guides prefer — if a repo uses
@@ -211,3 +219,20 @@ cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 For qmake, wrap the build (`bear -- make`) or generate one with `compiledb`. Generating a build
 database is a **build** action, not a review action — if none exists, say so and fall back to reading
 the code rather than mutating the project to enable a tool.
+
+## Memory ownership is a project decision
+
+This baseline takes no position on raw pointers versus smart pointers, because the right answer is
+per-project: embedded and game code often keeps raw pointers deliberately, a modern service codebase
+may mandate smart pointers, and Qt sits in between since its parent-child ownership is built on raw
+pointers. The `.clang-tidy` above therefore omits `cppcoreguidelines-owning-memory`.
+
+The skill resolves the mode per review — from the repo's `.clang-tidy`, then a written project or org
+convention, then an explicit `RAW` / `SMART` argument, then the prevailing pattern, and finally by
+asking. Genuine lifetime defects (leaks, double frees, use-after-free, dangling references,
+non-virtual destructors on polymorphic bases) are findings in **every** mode; the mode only decides
+whether raw ownership itself is worth mentioning, and when it is, it's a non-blocking nit.
+
+If your project *has* decided, encode it — either enable `cppcoreguidelines-owning-memory` in
+`.clang-tidy` or state the policy in an ADR or project instruction file. An encoded rule beats a
+per-review question every time.

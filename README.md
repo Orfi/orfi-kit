@@ -16,9 +16,9 @@ Every row below links to a full doc page under [`docs/skills/`](docs/skills/).
 
 ### Skills (always-on, auto-triggered, or invoked)
 
-Claude Code / OpenCode skills (Copilot ships these as slash commands). Most trigger on their own;
-`orfi-kit-csharp-code-review` is a skill directory because it ships a companion `CONFIG.md`, but you
-invoke it like a command.
+Claude Code / OpenCode skills (Copilot ships these as slash commands). Most trigger on their own; the
+two code-review skills (`orfi-kit-csharp-code-review`, `orfi-kit-cpp-code-review`) are skill
+directories because each ships a companion `CONFIG.md`, but you invoke them like commands.
 
 | Capability | What it does | Trigger | Requires |
 | --- | --- | --- | --- |
@@ -28,7 +28,7 @@ invoke it like a command.
 | [orfi-kit-xml-docs](docs/skills/orfi-kit-xml-docs.md) | Enforces formal `///` XML doc comments on every public, protected, and static C# member. | Auto-triggers when writing / editing C# XML doc comments | A C# project; `pwsh` for the checker |
 | [orfi-kit-doxygen-docs](docs/skills/orfi-kit-doxygen-docs.md) | Enforces Doxygen comments on every exposed (public / protected / static) declaration in C++ headers; follows the file's existing `/**` or `///` style. | Auto-triggers when writing / editing C++ Doxygen comments | A C++ project; `pwsh` or bash for the checker |
 | [orfi-kit-csharp-code-review](docs/skills/orfi-kit-csharp-code-review.md) | C# review that **runs** the enforcers (`dotnet format --verify-no-changes`, `build`, `test`) and grounds every style verdict in the repo's own `.editorconfig` / `Directory.Build.props` rather than general C# norms, then judges correctness, completeness, and ADR/PRD conformance. Ships a `CONFIG.md` baseline for repos with no config. | `/orfi-kit-csharp-code-review [DIFF\|FULL\|<path>]` — diff-scoped by default | A C# project and the .NET SDK; an upstream branch for diff scope |
-| [orfi-kit-cpp-code-review](docs/skills/orfi-kit-cpp-code-review.md) | C++ sibling of the above: **runs** `clang-format --dry-run`, `clang-tidy`, the project's build and tests, and grounds style verdicts in the repo's own `.clang-format` / `.clang-tidy` — or, when those are absent (the common case in C++), in the prevailing pattern of the file being changed. Adds memory/lifetime, const-correctness, and header-hygiene judgment; skips vendored and generated code. Ships a `CONFIG.md` baseline. | `/orfi-kit-cpp-code-review [DIFF\|FULL\|<path>]` — diff-scoped by default | A C++ project; `clang-format` / `clang-tidy` + a compilation database for the tool lane (degrades without them) |
+| [orfi-kit-cpp-code-review](docs/skills/orfi-kit-cpp-code-review.md) | C++ sibling of the above: **runs** `clang-format --dry-run`, `clang-tidy`, the project's build and tests, and grounds style verdicts in the repo's own `.clang-format` / `.clang-tidy` — or, when those are absent (the common case in C++), in the prevailing pattern of the file being changed. Adds memory/lifetime, const-correctness, and header-hygiene judgment; skips vendored and generated code. Ships a `CONFIG.md` baseline. | `/orfi-kit-cpp-code-review [DIFF\|FULL\|RAW\|SMART\|<path>]` — diff-scoped by default; ownership style (raw vs smart pointers) is resolved per project from config, conventions, or by asking | A C++ project; `clang-format` / `clang-tidy` + a compilation database for the tool lane (degrades without them) |
 
 ### Commands (you invoke them)
 
