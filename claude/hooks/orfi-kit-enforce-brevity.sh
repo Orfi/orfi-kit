@@ -23,45 +23,75 @@ PAYLOAD="$(cat 2>/dev/null || true)"
 
 # Prevent infinite loops: if this Stop hook already fired once for this turn,
 # Claude sets stop_hook_active. Do not re-block.
+# jq is NOT installed on every machine this runs on, so parse with sed as the
+# fallback. Bailing out when jq is absent silently disabled this hook entirely.
 if command -v jq >/dev/null 2>&1; then
   ACTIVE="$(printf '%s' "$PAYLOAD" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
-  [ "$ACTIVE" = "true" ] && exit 0
   TRANSCRIPT="$(printf '%s' "$PAYLOAD" | jq -r '.transcript_path // empty' 2>/dev/null || true)"
 else
-  # No jq — cannot parse safely; do not block.
-  exit 0
+  ACTIVE="$(printf '%s' "$PAYLOAD" | sed -n 's/.*"stop_hook_active"[[:space:]]*:[[:space:]]*\(true\|false\).*/\1/p')"
+  [ -z "$ACTIVE" ] && ACTIVE=false
+  TRANSCRIPT="$(printf '%s' "$PAYLOAD" \
+    | sed -n 's/.*"transcript_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    | sed 's/\\\\/\\/g')"
 fi
+
+# Prevent an infinite block loop.
+[ "$ACTIVE" = "true" ] && exit 0
 
 [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ] && exit 0
 
 # --- Extract the last assistant text turn and the last user prompt -----------
 # Transcript is JSONL, one message object per line. Walk from the end.
-LAST_ASSISTANT_LINES="$(
-  jq -rs '
-    map(select(.type == "assistant"))
-    | last
-    | (.message.content // [])
-    | map(select(.type == "text") | .text)
-    | join("\n")
-  ' "$TRANSCRIPT" 2>/dev/null || true
-)"
-[ -z "$LAST_ASSISTANT_LINES" ] && exit 0
+if command -v jq >/dev/null 2>&1; then
+  LAST_ASSISTANT_LINES="$(
+    jq -rs '
+      map(select(.type == "assistant"))
+      | last
+      | (.message.content // [])
+      | map(select(.type == "text") | .text)
+      | join("\n")
+    ' "$TRANSCRIPT" 2>/dev/null || true
+  )"
+  LAST_USER_PROMPT="$(
+    jq -rs '
+      map(select(.type == "user"))
+      | last
+      | (.message.content // [])
+      | (if type == "array"
+         then map(select(.type? == "text") | .text) | join("\n")
+         else tostring end)
+    ' "$TRANSCRIPT" 2>/dev/null || true
+  )"
+else
+  # jq-free fallback. Take the last assistant/user JSONL record and pull out the
+  # "text":"..." spans, converting the escaped newlines back to real ones so the
+  # line count reflects the rendered reply.
+  # The final assistant record is often a tool_use with no text at all, so take the
+  # last record that actually CONTAINS a text span rather than simply the last one.
+  LAST_ASSISTANT_LINES="$(
+    grep '"type":"assistant"' "$TRANSCRIPT" 2>/dev/null \
+      | grep '"text":"' | tail -n 1 \
+      | grep -o '"text":"\(\\.\|[^"\\]\)*"' \
+      | sed -e 's/^"text":"//' -e 's/"$//' -e 's/\\n/\n/g' || true
+  )"
+  LAST_USER_PROMPT="$(
+    grep '"type":"user"' "$TRANSCRIPT" 2>/dev/null \
+      | grep '"text":"' | tail -n 1 \
+      | grep -o '"text":"\(\\.\|[^"\\]\)*"' \
+      | sed -e 's/^"text":"//' -e 's/"$//' -e 's/\\n/\n/g' || true
+  )"
+fi
 
-LAST_USER_PROMPT="$(
-  jq -rs '
-    map(select(.type == "user"))
-    | last
-    | (.message.content // [])
-    | (if type == "array"
-       then map(select(.type? == "text") | .text) | join("\n")
-       else tostring end)
-  ' "$TRANSCRIPT" 2>/dev/null || true
-)"
+[ -z "$LAST_ASSISTANT_LINES" ] && exit 0
 
 # --- Escape hatch: user explicitly asked for depth --------------------------
 case "$(printf '%s' "$LAST_USER_PROMPT" | tr '[:upper:]' '[:lower:]')" in
   *"in full"*|*"in detail"*|*detailed*|*"explain in depth"*|*"in depth"*|\
-  *"walk me through"*|*"step by step"*|*"long version"*|*"be thorough"*|*"full detail"*)
+  *"walk me through"*|*"step by step"*|*"long version"*|*"be thorough"*|*"full detail"*|\
+  *elaborate*|*"full version"*|*"more detail"*|*"show more"*|*"more info"*|\
+  *"expand on"*|*"tell me more"*|*"the whole"*|*"everything"*|*"full report"*|\
+  *"comprehensive"*|*"deep dive"*|*"unabridged"*|*"no limit"*|*"as long as"*)
     exit 0 ;;
 esac
 
