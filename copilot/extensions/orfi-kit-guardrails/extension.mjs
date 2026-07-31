@@ -24,7 +24,11 @@ BREVITY: Keep replies under ~25 lines (about one screen) by default. Give the an
 // correction — a turn later than Claude Code's blocking Stop hook, but it still
 // keeps replies short over a conversation.
 const BREVITY_MAX_LINES = 25;
-const DEPTH_REQUEST = /\b(in full|in detail|detailed|in depth|walk me through|step by step|long version|be thorough|full detail)\b/i;
+// Keep this list in step with the same list in claude/hooks/orfi-kit-enforce-brevity.sh.
+// The two are maintained separately because they run on different platforms, so they
+// drift: this one previously lacked "elaborate" and "show more", meaning a caller could
+// ask for depth here and still get the brevity nudge.
+const DEPTH_REQUEST = /\b(in full|in detail|detailed|in depth|walk me through|step by step|long version|be thorough|full detail|elaborate|full version|more detail|show more|more info|expand on|tell me more|the whole|everything|full report|comprehensive|deep dive|unabridged|no limit|as long as)\b/i;
 
 const session = await joinSession({
     hooks: {

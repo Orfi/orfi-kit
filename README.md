@@ -56,7 +56,7 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | Capability | What it does | Surface | Requires |
 | --- | --- | --- | --- |
 | [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from an epic-derived working branch (any prefix) until it's rebased on its parent `epic/*`; ignores `master`/`epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | An epic-derived working branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
-| [orfi-kit-enforce-brevity-hook](docs/skills/orfi-kit-enforce-brevity-hook.md) | Stop hook that **blocks over-long replies**: counts lines in the assistant's finished reply and, if over ~25 (about one page), feeds it back with an instruction to shorten. Lifts the limit when the user asks for depth (e.g. "in full", "in detail"). Enforces the guardrails' brevity rule mechanically. | Claude Code hook | `jq`; a Stop-hook-capable Claude Code. Copilot gets a next-turn equivalent via the guardrails extension |
+| [orfi-kit-enforce-brevity-hook](docs/skills/orfi-kit-enforce-brevity-hook.md) | Stop hook that **blocks over-long replies**: counts lines in the assistant's finished reply and, if over ~25 (about one page), feeds it back with an instruction to shorten. Lifts the limit when the user asks for depth (e.g. "in full", "in detail", "elaborate"). Enforces the guardrails' brevity rule mechanically. | Claude Code hook | A Stop-hook-capable Claude Code. Uses `jq` when present and falls back to `sed`, so no external tool is required. Copilot gets a weaker next-turn equivalent — see below |
 | [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
@@ -110,6 +110,17 @@ and nothing warned that the hook still needed it at runtime.
 
 When you install for GitHub Copilot CLI, the guardrails extension is copied to
 `~/.copilot/extensions/orfi-kit-guardrails/` (the path the Copilot CLI loads user extensions from).
+
+**The two brevity guardrails are not equivalent, and the difference matters.** The Copilot SDK has
+no post-response event, so the extension cannot stop an over-long reply — it measures the previous
+turn and injects a correction on the next prompt. The reply you didn't want has already been sent.
+The Claude Code hook blocks instead: it exits non-zero and the reply must be rewritten before it
+reaches you. So Copilot's version is a nudge and Claude's is a gate; expect the Copilot side to let
+long replies through and only tighten over a conversation.
+
+Both sides keep their own copy of the phrase list that lifts the limit — a regex in
+`extension.mjs`, a `case` in the Stop hook. They have drifted before (the extension was missing
+"elaborate" and "show more"), so change them together.
 
 ## Uninstall
 
