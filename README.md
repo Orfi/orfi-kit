@@ -94,6 +94,18 @@ wiring instructions instead. Uninstall removes both hook files and their setting
 > Auto-wiring requires `jq` (bash) — without it you'll get manual instructions. PowerShell uses
 > built-in JSON support.
 
+**Hooks must not require anything the installer doesn't guarantee.** A hook runs on every reply or
+every tool call, long after install, on whatever machine the user has. If it needs a binary that
+isn't there it will usually take the quiet path — exit 0 and enforce nothing — so a guardrail that
+was wired correctly reads as a guardrail that passes. That is strictly worse than not shipping it.
+
+So when writing a hook: parse with `jq` if it's on PATH, but always keep a shell fallback (`sed`,
+`grep`, parameter expansion), and never make the absence of a tool the reason the hook stops
+checking. If a hook genuinely cannot do its job, it should say so on stderr rather than return
+success. The brevity hook was silently inert on any machine without `jq` until this was fixed —
+PowerShell installs were affected worst, because install-time wiring succeeds there without `jq`
+and nothing warned that the hook still needed it at runtime.
+
 ### Copilot extension
 
 When you install for GitHub Copilot CLI, the guardrails extension is copied to
