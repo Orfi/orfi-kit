@@ -145,7 +145,23 @@ don't bolt a collector on: assess coverage by reading the tests against the diff
 
 Then two companions:
 
-- **`/orfi-kit-xml-docs`** — every changed `public` / `protected` / `static` member has a `///` block.
+- **`/orfi-kit-xml-docs`** — invoke the skill to confirm every changed `public` / `protected` /
+  `static` member has a `///` block. Where the repo ships the checker, **run it over the branch's
+  touched files**, not over your uncommitted work:
+
+      # $BASE is the fork point resolved under Scope
+      mapfile -t CS < <(git diff --name-only "$BASE"...HEAD -- '*.cs')
+      pwsh scripts/check-xml-docs.ps1 -Files $CS       # or: bash scripts/check-xml-docs.sh --files "${CS[@]}"
+
+  **Use `--files`, not `--changed`.** `--changed` means `git diff HEAD` plus staged — *uncommitted*
+  work only. At review time the tree is usually clean, so it resolves to an empty list, prints "No
+  .cs files to check", and **exits 0** — a pass that inspected nothing. The files under review are
+  the ones the branch committed, which is what the diff above yields.
+
+  The checker lives in the reviewed repo's `scripts/`, not in this kit, and needs `pwsh` or bash. If
+  it or the shell is missing, say so and verify by reading the diff instead. If the file list comes
+  back empty, that means the branch changed no `.cs` files — not that the docs passed; a zero-file
+  run is **unconfirmed**, never clean.
 - **`/security-review`** — run it **scoped to this branch's diff**, not the whole tree. Invoke it
   with exactly this prompt:
 

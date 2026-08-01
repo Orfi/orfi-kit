@@ -237,8 +237,27 @@ fact about the change's verifiability, not a defect in the diff.
 
 Then two companions:
 
-- **`/orfi-kit-doxygen-docs`** — every changed public, protected, or exposed declaration in a header
-  carries a Doxygen block, following the file's existing `/**` or `///` style.
+- **`/orfi-kit-doxygen-docs`** — invoke the skill to confirm every changed public, protected, or
+  exposed declaration in a header carries a Doxygen block, following the file's existing `/**` or
+  `///` style. Where the repo ships the checker, **run it over the branch's touched headers**, not
+  over your uncommitted work:
+
+      # $BASE is the fork point resolved under Scope. Headers only — the checker
+      # skips .cpp/.cc deliberately, since the API surface lives in the header.
+      mapfile -t HDRS < <(git diff --name-only "$BASE"...HEAD -- '*.h' '*.hpp' '*.hh' '*.hxx' \
+        | grep -vE '(^|/)(third_party|external|vendor)/|(^|/)(ui_|moc_|qrc_)')
+      pwsh scripts/check-doxygen-docs.ps1 -Files $HDRS   # or: bash scripts/check-doxygen-docs.sh --files "${HDRS[@]}"
+
+  **Use `--files`, not `--changed`.** `--changed` means `git diff HEAD` plus staged — *uncommitted*
+  work only. At review time the tree is usually clean, so it resolves to an empty list and **exits
+  0** — a pass that inspected nothing. The headers under review are the ones the branch committed,
+  which is what the diff above yields. Filter the same vendored and generated paths excluded under
+  Scope, or the run reports on upstream code that isn't yours to document.
+
+  The checker lives in the reviewed repo's `scripts/`, not in this kit, and needs `pwsh` or bash. In
+  C++ expect it to be absent more often than in C# — when it is, verify by reading the changed
+  headers and say that is what you did. If the list comes back empty, that means the branch changed
+  no headers — not that the docs passed; a zero-file run is **unconfirmed**, never clean.
 - **`/security-review`** — run it **scoped to this branch's diff**, not the whole tree. Invoke it
   with exactly this prompt:
 
