@@ -34,6 +34,7 @@ $CmdsSrc          = Join-Path $RepoDir 'claude/commands'
 $HookSrc          = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-sync.sh'
 $BrevitySrc       = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-brevity.sh'
 $ExtSrc           = Join-Path $RepoDir 'copilot/extensions/orfi-kit-guardrails'
+$ScriptsSrc       = Join-Path $RepoDir 'scripts'
 
 $Home_     = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
 $XdgConfig = if ($env:XDG_CONFIG_HOME) { $env:XDG_CONFIG_HOME } else { Join-Path $Home_ '.config' }
@@ -46,6 +47,24 @@ $OpencodeSkills = Join-Path $XdgConfig 'opencode/skills'
 $OpencodeCmds   = Join-Path $XdgConfig 'opencode/commands'
 $CopilotSkills  = Join-Path $Home_ '.copilot/skills'
 $CopilotExts    = Join-Path $Home_ '.copilot/extensions'   # verified from Copilot CLI bundle
+$ClaudeScripts   = Join-Path $Home_ '.claude/scripts'
+$OpencodeScripts = Join-Path $XdgConfig 'opencode/scripts'
+$CopilotScripts  = Join-Path $Home_ '.copilot/scripts'
+
+# The doc-presence checkers + their git-hook wiring (scripts/). Both language
+# pairs install for every runtime, since a repo may be C#, C++, or both.
+#
+# These are PROJECT tooling, unlike everything else here: the skills call them by
+# the relative path scripts/check-*, which resolves against the reviewed repo's
+# own cwd. Installing them user-globally is a FALLBACK for a repo that has no
+# copy of its own — the project's copy still wins, exactly like the config
+# authority ladder. Copying one into a project remains the better answer, because
+# only then can that project's CI run it.
+$ScriptNames = @(
+  'check-xml-docs.ps1','check-xml-docs.sh',
+  'check-doxygen-docs.ps1','check-doxygen-docs.sh',
+  'setup-hooks.ps1','setup-hooks.sh'
+)
 
 $HookDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-sync.sh'
 $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
@@ -133,6 +152,27 @@ function Remove-CommandsFrom($targetDir) {
     foreach ($c in $CommandNames) {
         $p = Join-Path $targetDir "$c.md"
         if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+    }
+}
+function Install-ScriptsTo($targetDir) {
+    if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
+    foreach ($s in $ScriptNames) {
+        Place (Join-Path $ScriptsSrc $s) (Join-Path $targetDir $s)
+        # The .sh twins need the executable bit on POSIX; a no-op on Windows.
+        if ($s -like '*.sh' -and ($IsLinux -or $IsMacOS)) {
+            chmod +x (Join-Path $targetDir $s) 2>$null
+        }
+    }
+}
+function Remove-ScriptsFrom($targetDir) {
+    foreach ($s in $ScriptNames) {
+        $p = Join-Path $targetDir $s
+        if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+    }
+    # Only remove the directory if WE emptied it — never delete a dir holding
+    # someone else's scripts.
+    if ((Test-Path $targetDir) -and -not (Get-ChildItem -Force $targetDir)) {
+        Remove-Item -Force $targetDir
     }
 }
 function Install-CopilotSkills {
@@ -396,9 +436,9 @@ if (-not ($WantCC -or $WantOC -or $WantCP)) { Die 'no runtime selected' }
 if ($Uninstall) {
     Say ''
     Say 'Uninstalling orfi-kit...'
-    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks }
-    if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds }
-    if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension }
+    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Remove-ScriptsFrom $ClaudeScripts; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks }
+    if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds; Remove-ScriptsFrom $OpencodeScripts }
+    if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension; Remove-ScriptsFrom $CopilotScripts }
     Say 'Done.'
     exit 0
 }
@@ -430,6 +470,16 @@ elseif ($WantOC) {
     }
     Install-CommandsTo $OpencodeCmds
 }
+
+# Doc-presence checkers + hook wiring. Installed per selected runtime as a
+# FALLBACK copy — a project's own scripts/ still wins (see $ScriptNames above).
+Say ''
+Say 'Installing doc-checker scripts (xml-docs + doxygen-docs, and setup-hooks):'
+if ($WantCC) { Install-ScriptsTo $ClaudeScripts }
+if ($WantOC) { Install-ScriptsTo $OpencodeScripts }
+if ($WantCP) { Install-ScriptsTo $CopilotScripts }
+Say '  (project tooling: copy them into a repo''s scripts/ so its CI can run them,'
+Say '   and run setup-hooks there once to wire .githooks/pre-commit)'
 
 if ($WantCC) {
     Say ''

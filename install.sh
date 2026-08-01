@@ -35,13 +35,17 @@ CMDS_SRC="$REPO_DIR/claude/commands"
 HOOK_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-sync.sh"
 BREVITY_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-brevity.sh"
 EXT_SRC="$REPO_DIR/copilot/extensions/orfi-kit-guardrails"
+SCRIPTS_SRC="$REPO_DIR/scripts"
 
 CLAUDE_SKILLS="$HOME/.claude/skills"
 CLAUDE_CMDS="$HOME/.claude/commands"
 CLAUDE_HOOKS="$HOME/.claude/hooks"
+CLAUDE_SCRIPTS="$HOME/.claude/scripts"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 OPENCODE_SKILLS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills"
 OPENCODE_CMDS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/commands"
+OPENCODE_SCRIPTS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/scripts"
+COPILOT_SCRIPTS="$HOME/.copilot/scripts"
 COPILOT_SKILLS="$HOME/.copilot/skills"          # Copilot's own home — no command file
 COPILOT_EXTS="$HOME/.copilot/extensions"        # verified from Copilot CLI bundle
 
@@ -82,6 +86,21 @@ COPILOT_SKILL_NAMES=(
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-standup
   orfi-kit-sync-branch orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
+)
+
+# The doc-presence checkers + their git-hook wiring (scripts/). Both language
+# pairs install for every runtime, since a repo may be C#, C++, or both.
+#
+# These are PROJECT tooling, unlike everything else here: the skills call them by
+# the relative path scripts/check-*, which resolves against the reviewed repo's
+# own cwd. Installing them user-globally is a FALLBACK for a repo that has no
+# copy of its own — the project's copy still wins, exactly like the config
+# authority ladder. Copying one into a project remains the better answer, because
+# only then can that project's CI run it.
+SCRIPT_NAMES=(
+  check-xml-docs.ps1 check-xml-docs.sh
+  check-doxygen-docs.ps1 check-doxygen-docs.sh
+  setup-hooks.ps1 setup-hooks.sh
 )
 
 # The 14 command files (Claude Code / OpenCode only). Per-capability docs live
@@ -147,6 +166,28 @@ remove_commands_from() {
       rm -f "$target_dir/$c.md"; say "  removed $target_dir/$c.md"
     fi
   done
+}
+
+install_scripts_to() {
+  local target_dir="$1" s
+  mkdir -p "$target_dir"
+  for s in "${SCRIPT_NAMES[@]}"; do
+    place "$SCRIPTS_SRC/$s" "$target_dir/$s"
+    # .sh twins are useless without the bit; harmless on the .ps1 files.
+    case "$s" in *.sh) chmod +x "$target_dir/$s" 2>/dev/null || true ;; esac
+  done
+}
+
+remove_scripts_from() {
+  local target_dir="$1" s
+  for s in "${SCRIPT_NAMES[@]}"; do
+    if [ -e "$target_dir/$s" ] || [ -L "$target_dir/$s" ]; then
+      rm -f "$target_dir/$s"; say "  removed $target_dir/$s"
+    fi
+  done
+  # Only clean up the directory if WE emptied it — never delete a dir holding
+  # someone else's scripts.
+  [ -d "$target_dir" ] && rmdir "$target_dir" 2>/dev/null || true
 }
 
 install_copilot_skills() {
@@ -491,6 +532,7 @@ if [ "$MODE" = "uninstall" ]; then
   if [ "$WANT_CC" -eq 1 ]; then
     remove_claude_skills_from "$CLAUDE_SKILLS"
     remove_commands_from "$CLAUDE_CMDS"
+    remove_scripts_from "$CLAUDE_SCRIPTS"
     unwire_hook
     unwire_brevity_hook
     unwire_convention_hooks
@@ -498,10 +540,12 @@ if [ "$MODE" = "uninstall" ]; then
   if [ "$WANT_OC" -eq 1 ]; then
     remove_claude_skills_from "$OPENCODE_SKILLS"
     remove_commands_from "$OPENCODE_CMDS"
+    remove_scripts_from "$OPENCODE_SCRIPTS"
   fi
   if [ "$WANT_CP" -eq 1 ]; then
     remove_copilot_skills
     remove_copilot_extension
+    remove_scripts_from "$COPILOT_SCRIPTS"
   fi
   say "Done."
   exit 0
@@ -532,6 +576,16 @@ elif [ "$WANT_OC" -eq 1 ]; then
   fi
   install_commands_to "$OPENCODE_CMDS"
 fi
+
+# Doc-presence checkers + hook wiring. Installed per selected runtime as a
+# FALLBACK copy — a project's own scripts/ still wins (see SCRIPT_NAMES above).
+say ""
+say "Installing doc-checker scripts (xml-docs + doxygen-docs, and setup-hooks):"
+[ "$WANT_CC" -eq 1 ] && install_scripts_to "$CLAUDE_SCRIPTS"
+[ "$WANT_OC" -eq 1 ] && install_scripts_to "$OPENCODE_SCRIPTS"
+[ "$WANT_CP" -eq 1 ] && install_scripts_to "$COPILOT_SCRIPTS"
+say "  (project tooling: copy them into a repo's scripts/ so its CI can run them,"
+say "   and run setup-hooks there once to wire .githooks/pre-commit)"
 
 # Hook + settings wiring: Claude Code only (OpenCode has no settings.json hooks model here).
 if [ "$WANT_CC" -eq 1 ]; then

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# PRE-COMMIT HOOK: block a commit that adds undocumented public API
+# Scope   : the repo that installs it (project tooling, not user-global)
+# Wire it : pwsh scripts/setup-hooks.ps1   (or: bash scripts/setup-hooks.sh)
+#           — both just set core.hooksPath to this directory.
+# Exit 1  = BLOCK the commit. Bypass with `git commit --no-verify`.
+#
+# Runs the doc-presence checkers over the STAGED files only:
+#   *.cs                     -> check-xml-docs      (/// XML docs)
+#   *.h/*.hpp/*.hh/*.hxx     -> check-doxygen-docs  (Doxygen blocks, headers only)
+#
+# Deliberately uses --staged, NOT --files: a pre-commit hook's job is exactly the
+# index, and the checkers already derive that themselves. This is the one context
+# where --staged is the correct mode — the review skills use --files against the
+# branch diff instead, because at review time the index is usually empty.
+#
+# RESOLUTION ORDER for each checker, mirroring the kit's authority ladder (the
+# repo under review wins, then the kit's installed copy):
+#   1. ./scripts/<name>            — this project's own copy
+#   2. ~/.claude/scripts/<name>    — the copy orfi-kit's installer placed
+#   3. absent -> skip that language, and SAY SO on stderr
+#
+# A missing checker must never read as a clean commit. Per the kit's rule, never
+# let the absence of a tool be the reason enforcement goes quiet.
+
+STATUS=0
+
+# Prefer pwsh when present, else the bash twin. Both are behavioural twins, so
+# either satisfies the check; requiring PowerShell would make this hook inert on
+# a machine that only has bash.
+run_checker() {
+  local base="$1" label="$2"; shift 2
+
+  local ps_path="" sh_path=""
+  for dir in "./scripts" "$HOME/.claude/scripts"; do
+    [ -z "$ps_path" ] && [ -f "$dir/$base.ps1" ] && ps_path="$dir/$base.ps1"
+    [ -z "$sh_path" ] && [ -f "$dir/$base.sh" ]  && sh_path="$dir/$base.sh"
+  done
+
+  if [ -n "$sh_path" ]; then
+    bash "$sh_path" --staged || return 1
+  elif [ -n "$ps_path" ] && command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -File "$ps_path" -Staged || return 1
+  else
+    echo "pre-commit: $label checker not found (looked in ./scripts and ~/.claude/scripts) — $label docs NOT verified for this commit." >&2
+    return 0
+  fi
+  return 0
+}
+
+STAGED="$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)"
+[ -z "$STAGED" ] && exit 0
+
+if printf '%s\n' "$STAGED" | grep -qE '\.cs$'; then
+  run_checker check-xml-docs "C# XML" || STATUS=1
+fi
+
+if printf '%s\n' "$STAGED" | grep -qE '\.(h|hpp|hh|hxx)$'; then
+  run_checker check-doxygen-docs "C++ Doxygen" || STATUS=1
+fi
+
+if [ "$STATUS" -ne 0 ]; then
+  echo "" >&2
+  echo "COMMIT BLOCKED: undocumented public/protected/static members above." >&2
+  echo "Add the missing doc comments, or bypass with 'git commit --no-verify'" >&2
+  echo "(exceptional cases only — CI runs the same check)." >&2
+fi
+
+exit "$STATUS"
