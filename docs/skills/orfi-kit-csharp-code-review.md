@@ -46,13 +46,14 @@ Optional arguments: `DIFF` (default), `FULL` (whole solution), or an explicit pa
 - **Performance lane** — allocation inside loops, LINQ chains that re-enumerate or materialise needlessly, sync-over-async (`.Result` / `.Wait()`), missing `ConfigureAwait` in library code, string concatenation where a `StringBuilder` fits, boxing in hot paths, N+1 queries, and `IEnumerable` re-enumeration. It says *why* a finding matters rather than flagging cold-path micro-optimisations.
 - **Focus modes** — by default every lane runs. `BUGS`, `SECURITY`, and `PERFORMANCE` narrow the judgment lane to one axis (comma-combinable, and combinable with a scope), adopted from the generic `orfi-kit-code-review`. **The tool lane always runs regardless** — it's cheap and it's what catches what reasoning misses, so focus narrows judgment, not verification. The report names the focus used, so a narrow pass is never mistaken for a full review.
 - **Security is delegated, not reimplemented** — security analysis needs adversarial threat-modeling and its own severity rubric, so the skill records a verdict from a dedicated security review rather than improvising one inline. Keeping one copy of that logic avoids drift between two.
+- **The security pass is scoped to the branch diff** — on Claude Code, `/security-review` is invoked with an explicit prompt limiting it to `$MERGE_BASE..HEAD` (the fork point resolved under Scope, relative to the integration branch it forked from), restricted to source and test files. Unscoped, it reports pre-existing findings from the whole tree against a change that never touched them, burying the ones this branch actually introduced.
 
 ## Per-runtime differences
 
 | | Claude Code | Copilot CLI |
 | --- | --- | --- |
 | Doc-comment check | invokes `/orfi-kit-xml-docs` | uses the `orfi-kit-xml-docs` skill |
-| Security item | invokes `/security-review`; records `skipped (unavailable)` if absent | no bundled security-review skill — records `not run` and suggests a dedicated review before merge |
+| Security item | invokes `/security-review`, scoped to the branch diff (`$MERGE_BASE..HEAD`, source and test files only); records `skipped (unavailable)` if absent | no bundled security-review skill — records `not run` and suggests a dedicated review before merge |
 | Large diffs | dispatches parallel subagents (one per file or dimension), then consolidates | splits the pass deliberately by file or dimension, then consolidates |
 
 ## `CONFIG.md`
@@ -78,7 +79,7 @@ dotnet format --verify-no-changes --diagnostics   FAILED
 dotnet build    FAILED (1 error, style enforced in build)
 dotnet test     42 passed, 0 failed, 1 skipped
 xml-docs        ok
-security        /security-review — no findings
+security        /security-review (scoped a1b2c3d..HEAD, src+tests) — no findings
 
 BLOCKING
   1. src/Orders/OrderService.cs:23 — private const MaxRetries is PascalCase.

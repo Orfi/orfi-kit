@@ -146,9 +146,23 @@ don't bolt a collector on: assess coverage by reading the tests against the diff
 Then two companions:
 
 - **`/orfi-kit-xml-docs`** — every changed `public` / `protected` / `static` member has a `///` block.
-- **`/security-review`** — run it and record the verdict. Not available this session? Note it as
-  `skipped (unavailable)` and move on. Don't reimplement security analysis here — it's its own skill
-  with its own shape, and two copies would drift.
+- **`/security-review`** — run it **scoped to this branch's diff**, not the whole tree. Invoke it
+  with exactly this prompt:
+
+      /security-review Review only the changes introduced by the current branch relative to its
+      integration branch $BASE — specifically the diff at $MERGE_BASE..HEAD. Do not review code that
+      already exists on $BASE. Limit the review to source and test files; ignore planning and
+      documentation changes.
+
+  Substitute the values you resolved under Scope: **`$MERGE_BASE` is the fork-point commit** — the
+  `BASE` variable in that snippet holds exactly this SHA — and **`$BASE` is the integration branch it
+  forked from**, the parent `epic/*` branch or the trunk. Unscoped, the security pass reports
+  pre-existing findings from the whole tree against a change that never touched them, which buries the
+  ones this branch actually introduced.
+
+  Record the verdict. Not available this session? Note it as `skipped (unavailable)` and move on.
+  Don't reimplement security analysis here — it's its own skill with its own shape, and two copies
+  would drift.
 
 If the repo has its own lint command (a `make` target, script, or CI step), prefer that — it's what
 CI will actually enforce.

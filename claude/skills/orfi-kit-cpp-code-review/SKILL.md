@@ -239,9 +239,24 @@ Then two companions:
 
 - **`/orfi-kit-doxygen-docs`** — every changed public, protected, or exposed declaration in a header
   carries a Doxygen block, following the file's existing `/**` or `///` style.
-- **`/security-review`** — run it and record the verdict. Not available this session? Note it as
-  `skipped (unavailable)` and move on. Don't reimplement security analysis here — it's its own skill
-  with its own shape, and two copies would drift.
+- **`/security-review`** — run it **scoped to this branch's diff**, not the whole tree. Invoke it
+  with exactly this prompt:
+
+      /security-review Review only the changes introduced by the current branch relative to its
+      integration branch $BASE — specifically the diff at $MERGE_BASE..HEAD. Do not review code that
+      already exists on $BASE. Limit the review to source and test files; ignore planning and
+      documentation changes.
+
+  Substitute the values you resolved under Scope: **`$MERGE_BASE` is the fork-point commit** — the
+  `BASE` variable in that snippet holds exactly this SHA — and **`$BASE` is the integration branch it
+  forked from**, the parent `epic/*` branch or the trunk. Unscoped, the security pass reports
+  pre-existing findings from the whole tree against a change that never touched them, which buries the
+  ones this branch actually introduced. In C++ this matters more than usual: vendored trees under
+  `third_party/` and `vendor/` are full of real findings that are not yours to fix.
+
+  Record the verdict. Not available this session? Note it as `skipped (unavailable)` and move on.
+  Don't reimplement security analysis here — it's its own skill with its own shape, and two copies
+  would drift.
 
 If the repo has its own build, lint, or test command documented anywhere, prefer that — it's what CI
 will actually enforce.

@@ -49,13 +49,14 @@ Optional arguments: `DIFF` (default), `FULL` (whole project), or an explicit pat
 - **Performance lane** — unnecessary copies where a `const&` or `std::move` fits, pass-by-value containers, allocation inside loops, hoistable repeated lookups, missing `reserve`, O(n²) walks, and needless work in frequently-called paths (paint, update, event handlers). It says *why* a finding matters — a copy in a hot render loop is a finding, the same copy in one-time setup isn't. `clang-tidy`'s `performance-*` checks cover part of this in the tool lane.
 - **Focus modes** — by default every lane runs. `BUGS`, `SECURITY`, and `PERFORMANCE` narrow the judgment lane to one axis (comma-combinable, and combinable with a scope), adopted from the generic `orfi-kit-code-review`. **The tool lane always runs regardless** — it's cheap and it's what catches what reasoning misses, so focus narrows judgment, not verification. The report names the focus used, so a narrow pass is never mistaken for a full review.
 - **Security is delegated, not reimplemented** — it records a verdict from a dedicated security review rather than improvising threat-modeling inline.
+- **The security pass is scoped to the branch diff** — on Claude Code, `/security-review` is invoked with an explicit prompt limiting it to `$MERGE_BASE..HEAD` (the fork point resolved under Scope, relative to the integration branch it forked from), restricted to source and test files. Unscoped, it reports pre-existing findings from the whole tree against a change that never touched them. That matters more in C++ than elsewhere: vendored trees under `third_party/` and `vendor/` are full of real findings that are not yours to fix.
 
 ## Per-runtime differences
 
 | | Claude Code | Copilot CLI |
 | --- | --- | --- |
 | Doc-comment check | invokes `/orfi-kit-doxygen-docs` | uses the `orfi-kit-doxygen-docs` skill |
-| Security item | invokes `/security-review`; records `skipped (unavailable)` if absent | no bundled security-review skill — records `not run` and suggests a dedicated review before merge |
+| Security item | invokes `/security-review`, scoped to the branch diff (`$MERGE_BASE..HEAD`, source and test files only); records `skipped (unavailable)` if absent | no bundled security-review skill — records `not run` and suggests a dedicated review before merge |
 | Large diffs | dispatches parallel subagents (one per file or dimension), then consolidates | splits the pass deliberately by file or dimension, then consolidates |
 
 ## `CONFIG.md`
