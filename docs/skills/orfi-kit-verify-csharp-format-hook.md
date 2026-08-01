@@ -35,6 +35,20 @@ Passive — it runs automatically after a successful write. Matchers match **too
 
 - **`--include` is given a path relative to the project**, and the command runs from the project directory. An absolute path is accepted by `dotnet format` and then matches nothing: it analyses zero files and exits 0 — a false clean. Verified on the same violating file: `$?=2` with a relative path, `$?=0` with either `/c/...` or `C:\...`. Scoping to one file also keeps a large project from being re-verified on every keystroke.
 
+- **Findings are delivered, not just printed.** The hook emits
+  `hookSpecificOutput.additionalContext`, which the harness defines as *non-error feedback delivered
+  to the model so it can act on it*, and also writes a human-readable copy to stderr so you can see
+  the check ran.
+
+  This matters because an earlier version only printed to stdout. On `exit 0`, plain stdout goes to
+  the transcript — so the hook found real violations and effectively swallowed them. That is the
+  "wired but enforces nothing" failure the README warns about: advisory must not mean invisible. The
+  edit still is not blocked, but the violations now have to be dealt with rather than ignored.
+
+  The JSON is built with `jq` when present and hand-escaped otherwise, so a missing tool is never
+  why a finding goes undelivered. Verified on both paths with Windows paths and embedded quotes in
+  the payload.
+
 - Generated files (`*.g.cs`, `*.designer.cs`, `*.generated.cs`) and `Migrations/` are skipped.
 - On a clean file the hook stays **silent** — a hook that congratulates every edit is noise.
 - Claude-Code-only. See Notes.

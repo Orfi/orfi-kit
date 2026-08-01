@@ -75,11 +75,56 @@ while [ -n "$DIR" ] && [ "$DIR" != "/" ] && [ "$DIR" != "." ]; do
 done
 
 if [ -z "$CONFIGS" ] && [ -z "$PROPS" ]; then
-  # Nothing encoded. Per CONFIG.md this is a gap in the repo, not a rule to
-  # invent — say so once and stop. Do NOT substitute general C# habit.
-  echo "[ORFI C# CONVENTIONS] No .editorconfig or Directory.Build.props found above ${FILE_PATH##*/}."
-  echo "Nothing in this repo encodes naming or formatting, so no rule is enforceable here."
-  echo "Follow the prevailing pattern of the surrounding file and say that is what you did."
+  # The repo encodes nothing. Fall back to the kit's own baseline, which ships in
+  # the code-review skill's CONFIG.md. Read it from disk rather than duplicating
+  # it here: one source of truth, so the baseline cannot drift out of step with
+  # the review skill that documents it.
+  #
+  # Precedence is unchanged and non-negotiable: the repo under review ALWAYS wins.
+  # This branch only runs when there is nothing to win against.
+  BASELINE=""
+  for CAND in \
+    "$HOME/.claude/skills/orfi-kit-csharp-code-review/CONFIG.md" \
+    "$HOME/.copilot/skills/orfi-kit-csharp-code-review/CONFIG.md" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills/orfi-kit-csharp-code-review/CONFIG.md"
+  do
+    [ -f "$CAND" ] && { BASELINE="$CAND"; break; }
+  done
+
+  echo "[ORFI C# CONVENTIONS — ${FILE_PATH##*/}]"
+  echo "This repo encodes NOTHING: no .editorconfig, no Directory.Build.props."
+  echo
+
+  if [ -z "$BASELINE" ]; then
+    # Baseline not installed either. Now there genuinely is no rule to apply.
+    echo "The orfi-kit baseline (CONFIG.md) is not installed either, so no rule is"
+    echo "enforceable here. Follow the prevailing pattern of the surrounding file and"
+    echo "say that is what you did. Do not invent a rule from general C# habit."
+    exit 0
+  fi
+
+  echo "ENFORCING the orfi-kit baseline as the contract for this repo. These are the"
+  echo "kit's house-style defaults, from $BASELINE."
+  echo "Deviation is a violation and should be reported as one, including in"
+  echo "pre-existing code you touch. Write this file to the rules below."
+  echo
+
+  # Emit the .editorconfig baseline (first fenced block) and the build properties.
+  awk '/^```ini/{f=1;next} /^```/{if(f){exit}} f' "$BASELINE" \
+    | grep -vE '^[[:space:]]*(#|$)' | head -n "$MAX_RULE_LINES"
+  echo
+  echo "  Build gate properties (from the same baseline):"
+  awk '/^```xml/{f=1;next} /^```/{if(f){exit}} f' "$BASELINE" \
+    | grep -oE '<(TreatWarningsAsErrors|EnforceCodeStyleInBuild|Nullable)>[^<]*<' \
+    | sed -e 's/</  /' -e 's/>/ = /' -e 's/<$//' | sed 's/^/  /'
+  echo
+  echo "  READ applicable_kinds LITERALLY: 'field' COVERS const AND static readonly."
+  echo "  A const IS a field, so required_prefix = _ applies to it."
+  echo
+  echo "NOTE: with no .editorconfig in the repo, 'dotnet format' cannot mechanically"
+  echo "check these — the baseline is enforced by you reading it, not by a tool. To make"
+  echo "it enforceable by the build and CI, adopt the baseline as the repo's own"
+  echo ".editorconfig. This hook is read-only and will never write it for you."
   exit 0
 fi
 

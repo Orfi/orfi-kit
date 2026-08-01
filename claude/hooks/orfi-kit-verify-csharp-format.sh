@@ -101,14 +101,42 @@ if [ "$FORMAT_EXIT" -eq 0 ]; then
   exit 0
 fi
 
-echo "[ORFI C# FORMAT] dotnet format reports violations in ${FILE_PATH##*/} (exit $FORMAT_EXIT)."
-echo "Project: $PROJECT"
-echo
-sed -n '1,40p' "$TMP_OUT"
-echo
-echo "These are this repo's own .editorconfig / analyzer rules, not general C# habit."
-echo "Fix them now — under TreatWarningsAsErrors they are a build break, and leaving"
-echo "them turns a write-time fix into a review or CI failure."
+# --- Deliver the findings ----------------------------------------------------
+# Advisory must not mean invisible. On exit 0 plain stdout only reaches the
+# transcript, so an earlier version of this hook found real violations and
+# effectively swallowed them — the exact "wired but enforces nothing" failure the
+# README warns about. Emit hookSpecificOutput.additionalContext instead, which the
+# harness defines as non-error feedback delivered TO THE MODEL so it can act on
+# it. Result: the edit is not blocked, but the violations must be dealt with.
+VIOLATIONS="$(sed -n '1,40p' "$TMP_OUT")"
+
+MSG="[ORFI C# FORMAT] dotnet format reports violations in ${FILE_PATH##*/} (exit $FORMAT_EXIT).
+Project: $PROJECT
+
+$VIOLATIONS
+
+These are this repo's own .editorconfig / analyzer rules, not general C# habit.
+FIX THEM NOW, in this file, before moving on — under TreatWarningsAsErrors they
+are a build break, and leaving them turns a write-time fix into a review or CI
+failure. Do not report this edit as done while they stand."
+
+# Human-visible copy on stderr (shown in the hook's output), and the actionable
+# copy to the model via additionalContext. Both, deliberately: the user should see
+# that the check ran and what it found, not just be told later that it was fine.
+printf '%s\n' "$MSG" >&2
+
+# JSON-encode for additionalContext. jq when present; otherwise escape by hand —
+# a missing jq must not be why the finding goes undelivered.
+if command -v jq >/dev/null 2>&1; then
+  printf '%s' "$MSG" | jq -Rs '{
+    hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: . }
+  }'
+else
+  ESCAPED="$(printf '%s' "$MSG" \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+    | awk '{ printf "%s\\n", $0 }')"
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$ESCAPED"
+fi
 
 # Opt-in blocking. Default is advisory: see the header for why.
 if [ "${ORFI_CSHARP_FORMAT_BLOCKING:-0}" = "1" ]; then

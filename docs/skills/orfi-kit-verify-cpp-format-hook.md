@@ -40,6 +40,20 @@ None are required, and every absence is reported rather than silently skipped:
 
 - **`clang-tidy` runs only when a `compile_commands.json` exists.** Per the C++ review skill's `CONFIG.md`, it is largely inert without one — it cannot resolve includes and its output is unreliable. When the database is missing the hook says naming **was not checked** and that this is *unverified, not clean*.
 
+- **Findings are delivered, not just printed.** The hook emits
+  `hookSpecificOutput.additionalContext`, which the harness defines as *non-error feedback delivered
+  to the model so it can act on it*, and also writes a human-readable copy to stderr so you can see
+  the check ran.
+
+  This matters because an earlier version only printed to stdout. On `exit 0`, plain stdout goes to
+  the transcript — so the hook found real violations and effectively swallowed them. That is the
+  "wired but enforces nothing" failure the README warns about: advisory must not mean invisible. The
+  edit still is not blocked, but the violations now have to be dealt with rather than ignored.
+
+  The JSON is built with `jq` when present and hand-escaped otherwise, so a missing tool is never
+  why a finding goes undelivered. Verified on both paths with Windows paths and embedded quotes in
+  the payload.
+
 - On a clean file the hook stays **silent** on stdout; any "could not verify" note goes to stderr.
 - Claude-Code-only. See Notes.
 

@@ -84,12 +84,68 @@ fi
 BASE="${FILE_PATH##*/}"
 
 if [ -z "$FMT" ] && [ -z "$TIDY" ]; then
-  # Per CONFIG.md this is the COMMON case in C++ and is not an error.
-  echo "[ORFI C++ CONVENTIONS] No .clang-format or .clang-tidy found above $BASE."
-  echo "That is the common case in C++ and not an error — but it means nothing in this"
-  echo "repo encodes formatting or naming, so no rule here is enforceable."
-  echo "Follow the prevailing pattern of THIS file and its immediate siblings, and say"
-  echo "that is what you did. Do not import a general C++ style guide."
+  # The repo encodes nothing — the COMMON case in C++. Fall back to the kit's own
+  # baseline, which ships in the code-review skill's CONFIG.md. Read it from disk
+  # rather than duplicating it here: one source of truth, so the baseline cannot
+  # drift out of step with the review skill that documents it.
+  #
+  # Precedence is unchanged and non-negotiable: the repo under review ALWAYS wins.
+  # This branch only runs when there is nothing to win against.
+  BASELINE=""
+  for CAND in \
+    "$HOME/.claude/skills/orfi-kit-cpp-code-review/CONFIG.md" \
+    "$HOME/.copilot/skills/orfi-kit-cpp-code-review/CONFIG.md" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills/orfi-kit-cpp-code-review/CONFIG.md"
+  do
+    [ -f "$CAND" ] && { BASELINE="$CAND"; break; }
+  done
+
+  echo "[ORFI C++ CONVENTIONS — $BASE]"
+  echo "This repo encodes NOTHING: no .clang-format, no .clang-tidy. That is the common"
+  echo "case in C++ and not an error."
+  echo
+
+  if [ -z "$BASELINE" ]; then
+    echo "The orfi-kit baseline (CONFIG.md) is not installed either, so no rule is"
+    echo "enforceable here. Follow the prevailing pattern of THIS file and its immediate"
+    echo "siblings and say that is what you did. Do not import a general C++ style guide."
+    exit 0
+  fi
+
+  echo "ENFORCING the orfi-kit baseline as the contract for this repo. These are the"
+  echo "kit's house-style defaults, from $BASELINE."
+  echo "Deviation is a violation and should be reported as one, including in"
+  echo "pre-existing code you touch. Write this file to the rules below."
+  echo
+
+  # CONFIG.md ships two yaml blocks: .clang-format first, then .clang-tidy.
+  echo "  --- baseline .clang-format"
+  awk '/^```yaml/{n++; if(n==1){f=1;next}} f&&/^```/{exit} f' "$BASELINE" \
+    | grep -vE '^[[:space:]]*(#|$)' | head -n "$MAX_RULE_LINES" | sed 's/^/  /'
+  echo
+  echo "  --- baseline .clang-tidy (naming keys paired with their values)"
+  awk '/^```yaml/{n++; if(n==2){f=1;next}} f&&/^```/{exit} f' "$BASELINE" \
+    | awk '
+      /readability-identifier-naming\./ {
+        k=$0; sub(/.*readability-identifier-naming\./,"",k); sub(/[[:space:]]*$/,"",k)
+        if (k ~ /:[[:space:]]*[^[:space:]]/) { print "    " k; key=""; next }
+        key=k; next
+      }
+      key != "" && /value[[:space:]]*:/ {
+        v=$0; sub(/.*value[[:space:]]*:[[:space:]]*/,"",v); sub(/[[:space:]]*$/,"",v)
+        print "    " key " = " v; key=""
+      }
+      /^[[:space:]]*WarningsAsErrors:/ { print "    " $0 }
+    ' | head -n "$MAX_RULE_LINES"
+  echo
+  echo "NOTE: with no config in the repo, clang-format and clang-tidy have nothing to"
+  echo "read — the baseline is enforced by you applying it, not by a tool. To make it"
+  echo "enforceable by the build and CI, adopt the baseline as the repo's own"
+  echo ".clang-format / .clang-tidy. This hook is read-only and will never write them."
+  echo
+  echo "No tool enforces FILENAMES in any case. Apply the baseline's filename rule to"
+  echo "NEW files only, and never propose bulk renames: a rename breaks every #include"
+  echo "of the old name."
   exit 0
 fi
 

@@ -61,6 +61,15 @@ FMT_CFG="$(find_up .clang-format || true)"
 TIDY_CFG="$(find_up .clang-tidy || true)"
 
 REPORTED=0
+FINDINGS=""
+
+# Advisory must not mean invisible. On exit 0 plain stdout only reaches the
+# transcript, so findings printed there are effectively swallowed — the "wired but
+# enforces nothing" failure the README warns about. Collect findings here and
+# deliver them at the end via hookSpecificOutput.additionalContext, which the
+# harness defines as non-error feedback delivered TO THE MODEL so it can act on it.
+add_finding() { FINDINGS="${FINDINGS}$1
+"; }
 
 # --- Formatting: clang-format ------------------------------------------------
 # Only meaningful when the repo actually ships a .clang-format. Without one,
@@ -77,11 +86,11 @@ if [ -n "$FMT_CFG" ]; then
 
     if [ "$FMT_EXIT" -ne 0 ]; then
       REPORTED=1
-      echo "[ORFI C++ FORMAT] clang-format reports violations in $BASE (exit $FMT_EXIT)."
-      echo "Config: $FMT_CFG"
-      echo
-      sed -n '1,30p' "$TMP_FMT"
-      echo
+      add_finding "[ORFI C++ FORMAT] clang-format reports violations in $BASE (exit $FMT_EXIT).
+Config: $FMT_CFG
+
+$(sed -n '1,30p' "$TMP_FMT")
+"
     fi
     rm -f "$TMP_FMT"
   else
@@ -119,11 +128,11 @@ if [ -n "$TIDY_CFG" ]; then
 
     if [ "$TIDY_EXIT" -ne 0 ] || grep -qE 'warning:|error:' "$TMP_TIDY" 2>/dev/null; then
       REPORTED=1
-      echo "[ORFI C++ NAMING/ANALYSIS] clang-tidy findings in $BASE (exit $TIDY_EXIT)."
-      echo "Config: $TIDY_CFG   Compilation database: $CDB"
-      echo
-      grep -E 'warning:|error:' "$TMP_TIDY" 2>/dev/null | sed -n '1,30p'
-      echo
+      add_finding "[ORFI C++ NAMING/ANALYSIS] clang-tidy findings in $BASE (exit $TIDY_EXIT).
+Config: $TIDY_CFG   Compilation database: $CDB
+
+$(grep -E 'warning:|error:' "$TMP_TIDY" 2>/dev/null | sed -n '1,30p')
+"
     fi
     rm -f "$TMP_TIDY"
   fi
@@ -135,9 +144,28 @@ if [ "$REPORTED" -eq 0 ]; then
   exit 0
 fi
 
-echo "These are this repo's own .clang-format / .clang-tidy rules, not general C++"
-echo "habit. Fix them now — leaving them turns a write-time fix into a review or CI"
-echo "failure, and under WarningsAsErrors a naming hit is a build break."
+MSG="${FINDINGS}These are this repo's own .clang-format / .clang-tidy rules, not general C++
+habit. FIX THEM NOW, in this file, before moving on — leaving them turns a
+write-time fix into a review or CI failure, and under WarningsAsErrors a naming
+hit is a build break. Do not report this edit as done while they stand."
+
+# Human-visible copy on stderr, plus the actionable copy to the model. Both,
+# deliberately: the user should see that the check ran and what it found.
+printf '%s\n' "$MSG" >&2
+
+# JSON-encode for additionalContext. jq when present; otherwise escape by hand -
+# a missing jq must not be why the finding goes undelivered. Order matters:
+# backslashes first, then quotes, then strip CR, then fold newlines.
+if command -v jq >/dev/null 2>&1; then
+  printf '%s' "$MSG" | jq -Rs '{
+    hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: . }
+  }'
+else
+  ESCAPED="$(printf '%s' "$MSG" \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+    | awk '{ printf "%s\\n", $0 }')"
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$ESCAPED"
+fi
 
 if [ "${ORFI_CPP_FORMAT_BLOCKING:-0}" = "1" ]; then
   echo "ORFI_CPP_FORMAT_BLOCKING=1 — treating this as a block." >&2

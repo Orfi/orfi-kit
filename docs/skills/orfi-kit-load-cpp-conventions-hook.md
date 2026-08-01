@@ -23,8 +23,13 @@ None. `jq` is used when present and `sed` is the fallback, so no external tool i
 
 ## Behavior / rules
 
-- **The repo under review always wins.** The hook reports only what the target repo encodes and imports no external style guide.
-- **Most C++ repos ship neither config. That is the common case and not an error.** When both are absent the hook says so and tells you to follow the prevailing pattern of the file being edited and its immediate siblings — because with nothing encoded, that is the only honest standard.
+- **The repo under review always wins.** When the repo encodes rules, the hook reports only those and imports no external style guide.
+- **Most C++ repos ship neither config. That is the common case and not an error** — and it is exactly when the kit's own baseline takes over. With no `.clang-format` and no `.clang-tidy`, the hook reads the baseline out of the code-review skill's `CONFIG.md` and enforces it as the contract, stating that deviation is a violation including in pre-existing code you touch. The baseline is read from disk rather than duplicated in the hook, so it cannot drift from the `CONFIG.md` that documents it.
+
+  Precedence is unchanged: **the repo always wins.** This only fires when there is nothing to win against. And it is honest about its limit — with no config in the repo, `clang-format` and `clang-tidy` have nothing to read, so the baseline is enforced by applying it, not by a tool. Adopting it as the repo's own config is what makes it enforceable by the build and CI.
+
+- If the baseline is not installed either, nothing is enforceable: the hook defers to the prevailing pattern of the file and its immediate siblings, and never imports an external C++ style guide.
+- **Read-only.** The hook never writes config into your repo.
 - **`clang-tidy` is largely inert without `compile_commands.json`** — it cannot resolve includes. The hook detects the database (in the tree or in a `build/`, `out/`, `cmake-build-*` dir) and, when it is missing, says the naming rules will **not** be mechanically enforced and must be applied by reading. Generating a compilation database is a build action, not this hook's job.
 - If `.clang-tidy` enables `cppcoreguidelines-owning-memory`, the hook reports that the repo has **encoded a smart-pointer ownership policy**, so raw owning pointers are a real violation. Otherwise it says nothing about pointer style.
 - **No tool enforces filenames** — `clang-tidy` covers identifiers only. Filename conventions are reported as advisory, and the hook explicitly warns against bulk renames: a rename breaks every `#include` of the old name.
@@ -59,14 +64,35 @@ ColumnLimit: 100
      mechanically enforced on this edit — you must apply them by reading.
 ```
 
-And in a repo with no config at all — the common case:
+And in a repo with no config at all — the common case, where the kit baseline takes over:
 
 ```
-[ORFI C++ CONVENTIONS] No .clang-format or .clang-tidy found above SP_Thing.cpp.
-That is the common case in C++ and not an error — but it means nothing in this
-repo encodes formatting or naming, so no rule here is enforceable.
-Follow the prevailing pattern of THIS file and its immediate siblings, and say
-that is what you did. Do not import a general C++ style guide.
+[ORFI C++ CONVENTIONS — thing.cpp]
+This repo encodes NOTHING: no .clang-format, no .clang-tidy. That is the common
+case in C++ and not an error.
+
+ENFORCING the orfi-kit baseline as the contract for this repo. These are the
+kit's house-style defaults, from ~/.claude/skills/orfi-kit-cpp-code-review/CONFIG.md.
+Deviation is a violation and should be reported as one, including in
+pre-existing code you touch. Write this file to the rules below.
+
+  --- baseline .clang-format
+  BasedOnStyle: LLVM
+  IndentWidth: 4
+  ColumnLimit: 120
+  BreakBeforeBraces: Allman
+  ...
+
+  --- baseline .clang-tidy (naming keys paired with their values)
+    ClassCase = CamelCase
+    FunctionCase = camelBack
+    PrivateMemberPrefix = 'm_'
+    ClassMemberPrefix = 's_'
+    ConstantCase = UPPER_CASE
+    ...
+
+NOTE: with no config in the repo, clang-format and clang-tidy have nothing to
+read — the baseline is enforced by you applying it, not by a tool.
 ```
 
 ## Notes

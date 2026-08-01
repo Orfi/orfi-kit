@@ -22,8 +22,13 @@ None. `jq` is used when present and `sed` is the fallback, so no external tool i
 
 ## Behavior / rules
 
-- **The repo under review always wins.** The hook reports only what the target repo encodes. It ships no baseline of its own and invents no rule.
-- If no `.editorconfig` and no `Directory.Build.props` exist, it says so plainly and tells you to follow the prevailing pattern of the surrounding file — it does **not** substitute general C# habit for a rule the repo never set.
+- **The repo under review always wins.** When the repo encodes rules, the hook reports only those and invents nothing.
+- **If the repo encodes nothing, the kit's own baseline is enforced as the contract.** With no `.editorconfig` and no `Directory.Build.props`, the hook reads the baseline out of the code-review skill's `CONFIG.md` (from `~/.claude/skills/`, `~/.copilot/skills/`, or the OpenCode path) and states that deviation is a violation, including in pre-existing code you touch. The baseline is read from disk rather than duplicated in the hook, so it can never drift from the `CONFIG.md` that documents it.
+
+  Precedence is unchanged: **the repo always wins.** This only fires when there is nothing to win against. And it is honest about its own limit — with no `.editorconfig` in the repo, `dotnet format` has nothing to read, so the baseline is enforced by reading it, not by a tool. The hook says so, and points out that adopting the baseline as the repo's own `.editorconfig` is what makes it enforceable by the build and CI.
+
+- If the baseline is not installed either, then nothing is enforceable: the hook says so and defers to the prevailing pattern of the surrounding file. It never substitutes general C# habit for a rule nobody set.
+- **Read-only.** The hook never writes config into your repo. Adopting the baseline is a deliberate act, not a side effect of editing a file.
 - It always states that `applicable_kinds = field` **covers `const` and `static readonly`**. A `const` *is* a field, so a field rule such as `required_prefix = _` applies to it. Misreading this is a known cause of mass naming violations: a PascalCase private `const` has passed review and broken the build under `TreatWarningsAsErrors`.
 - When `TreatWarningsAsErrors` is `true` it says so explicitly — a style or naming warning is a build break, not a nit.
 - **Advisory: it never blocks a write.** Exit is always 0.

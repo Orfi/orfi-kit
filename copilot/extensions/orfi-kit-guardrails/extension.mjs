@@ -32,10 +32,12 @@ BREVITY: Keep replies under ~25 lines (about one screen) by default. Give the an
 // This is the same asymmetry already documented above for brevity: Claude gates,
 // Copilot nudges.
 //
-// AUTHORITY: the repo under review always wins. These blocks tell the model to go
-// READ the repo's own .editorconfig / .clang-format / .clang-tidy — they do not
-// restate a baseline, because a hardcoded rule here would outrank the repo's and
-// that is exactly the failure the code-review CONFIG.md files forbid.
+// AUTHORITY, in order: (1) the repo under review always wins; (2) failing that,
+// the kit's baseline in the code-review skills' CONFIG.md is the contract;
+// (3) failing both, nothing is enforceable — follow the file's prevailing pattern.
+// These blocks tell the model to go READ those files rather than restating rules
+// inline, because a hardcoded rule here would outrank the repo's own and that is
+// exactly the failure the CONFIG.md files forbid.
 //
 // Keep the RULE TEXT below in step with the Claude-side loaders
 // (claude/hooks/orfi-kit-load-csharp-conventions.sh and
@@ -49,7 +51,7 @@ Before writing or editing any .cs file, read the rules this repo actually encode
 2. Read dotnet_naming_rule / dotnet_naming_symbols / dotnet_naming_style as COMPLETE TRIPLETS — a rule alone is meaningless without the symbols it selects and the style it applies.
 3. Read applicable_kinds LITERALLY: 'field' COVERS const AND static readonly. A const IS a field, so a field rule (e.g. required_prefix = _) applies to it. Misreading this is a known cause of mass naming violations — a PascalCase private const has passed review and broken the build.
 4. Read Directory.Build.props for TreatWarningsAsErrors, EnforceCodeStyleInBuild, and Nullable. If TreatWarningsAsErrors is true, a style or naming warning is a BUILD BREAK, not a nit.
-5. If the repo encodes nothing, say so and follow the prevailing pattern of the surrounding file. Never substitute general C# habit for a rule the repo did not set.
+5. If the repo encodes NOTHING (no .editorconfig, no Directory.Build.props), fall back to the orfi-kit baseline in the code-review skill's CONFIG.md (~/.copilot/skills/orfi-kit-csharp-code-review/CONFIG.md) and treat it as the contract for this repo: read it and comply, and report deviation as a violation. Repo config still wins wherever it exists. If the baseline is not installed either, only then say nothing is enforceable and follow the prevailing pattern of the surrounding file. Never substitute general C# habit for a rule nobody set, and never write config into the repo.
 `;
 
 const CPP_CONVENTIONS = `
@@ -57,7 +59,7 @@ const CPP_CONVENTIONS = `
 Before writing or editing any .cpp/.hpp/.h/.cc/.cxx/.inl file, read the rules this repo actually encodes and comply on the FIRST draft.
 1. Read the NEAREST .clang-format (formatting, include order) and .clang-tidy (naming via readability-identifier-naming.*, static analysis). Both resolve nearest-file-wins up the directory tree.
 2. clang-tidy is largely INERT without compile_commands.json — it cannot resolve includes. If there is no compilation database, the naming rules will NOT be mechanically enforced, so apply them by reading. Unverified is not the same as clean.
-3. Most C++ repos ship NEITHER config. That is normal, not an error — follow the prevailing pattern of the file being edited and its immediate siblings, and say that is what you did. Never import an external C++ style guide.
+3. Most C++ repos ship NEITHER config. That is normal, not an error — and it is when the orfi-kit baseline takes over: read the code-review skill's CONFIG.md (~/.copilot/skills/orfi-kit-cpp-code-review/CONFIG.md) and treat it as the contract for this repo, reporting deviation as a violation. Repo config still wins wherever it exists. If the baseline is not installed either, only then follow the prevailing pattern of the file and its immediate siblings. Never import an external C++ style guide, and never write config into the repo.
 4. If .clang-tidy enables cppcoreguidelines-owning-memory, the repo has encoded a smart-pointer ownership policy and raw owning pointers are a real violation. Otherwise do not treat raw pointers as defects.
 5. No tool enforces FILENAMES — clang-tidy covers identifiers only. Treat filename conventions as advisory and never propose bulk renames: a rename breaks every #include of the old name.
 `;
