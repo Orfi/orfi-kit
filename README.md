@@ -61,7 +61,7 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-load-cpp-conventions-hook](docs/skills/orfi-kit-load-cpp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C++ rules before a source/header is written**: the nearest `.clang-format` and `.clang-tidy` `readability-identifier-naming.*` keys (paired with their values). Detects whether `compile_commands.json` exists and says so when `clang-tidy` would be inert without it. Treats "no config at all" as the normal C++ case, not an error. Advisory; never proposes bulk renames. | Claude Code hook | Nothing — uses `jq` when present, falls back to `sed` |
 | [orfi-kit-verify-csharp-format-hook](docs/skills/orfi-kit-verify-csharp-format-hook.md) | PostToolUse hook that runs `dotnet format --verify-no-changes` scoped to the edited file right **after** it is written, reporting violations with file/line/column. Advisory by default (`ORFI_CSHARP_FORMAT_BLOCKING=1` to block). | Claude Code hook | The .NET SDK and a `.csproj` above the file — says so on stderr and exits 0 when either is missing, never a silent pass |
 | [orfi-kit-verify-cpp-format-hook](docs/skills/orfi-kit-verify-cpp-format-hook.md) | PostToolUse hook that runs `clang-format --dry-run --Werror` after a C/C++ write, plus `clang-tidy` **only** when a `compile_commands.json` exists — otherwise it reports that naming is unverified rather than clean. Advisory by default (`ORFI_CPP_FORMAT_BLOCKING=1` to block). | Claude Code hook | `clang-format` / `clang-tidy` and a compilation database for the naming half; every absence is reported on stderr |
-| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
+| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long, **plus** the C#/C++ coding conventions — scoped to the languages actually present in the workspace — so code is written against the repo's own config instead of corrected at review time. Loads conventions but cannot verify a written file: the SDK has no per-edit event. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
 
@@ -84,16 +84,29 @@ runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI — one or severa
 
 ### Hook wiring (Claude Code)
 
-When you install for Claude Code, the installer places two hooks in `~/.claude/hooks/` and wires
+When you install for Claude Code, the installer places six hooks in `~/.claude/hooks/` and wires
 each into `~/.claude/settings.json`:
 
 - `orfi-kit-enforce-sync.sh` → a **PreToolUse/Bash** entry (blocks unsynced `git push`).
 - `orfi-kit-enforce-brevity.sh` → a **Stop** entry (blocks over-long replies; ~25-line limit,
   override with `ORFI_BREVITY_MAX_LINES`, auto-lifted when the user asks for depth).
+- `orfi-kit-load-csharp-conventions.sh` and `orfi-kit-load-cpp-conventions.sh` → two
+  **PreToolUse/`Write|Edit|MultiEdit`** entries that emit the repo's own rules *before* a file is
+  written. Advisory.
+- `orfi-kit-verify-csharp-format.sh` and `orfi-kit-verify-cpp-format.sh` → two
+  **PostToolUse/`Write|Edit|MultiEdit`** entries that run the real formatters *after* a file is
+  written. Advisory by default; `ORFI_{CSHARP,CPP}_FORMAT_BLOCKING=1` makes them block.
 
-Both merges are **idempotent** and **non-destructive**: your existing settings are preserved and a
-`settings.json.bak` backup is written before any change. Decline the sync-hook prompt to get manual
-wiring instructions instead. Uninstall removes both hook files and their settings entries.
+Matchers are **tool names, not file globs** — Claude matchers cannot match `*.cs`. Each hook filters
+paths itself from `.tool_input.file_path`, so a hook wired to `Write` exits 0 silently on files it
+doesn't own.
+
+Every merge is **idempotent** and **non-destructive**: your existing settings are preserved,
+re-running the installer never duplicates an entry, and a `settings.json.bak` snapshot is written
+before any change. A one-time `settings.json.orfi-orig` also preserves what existed *before*
+orfi-kit ever touched the file — on a re-install, `settings.json` already contains our entries, so
+the rolling `.bak` alone would lose your true original. Decline the sync-hook prompt to get manual
+wiring instructions instead. Uninstall removes all six hook files and their settings entries.
 
 > Auto-wiring requires `jq` (bash) — without it you'll get manual instructions. PowerShell uses
 > built-in JSON support.

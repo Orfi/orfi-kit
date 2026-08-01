@@ -3,8 +3,8 @@
 # orfi-kit installer (PowerShell) — the cross-platform twin of install.sh.
 # Runs on Windows PowerShell 5+, and pwsh on Windows / macOS / Linux.
 #
-# orfi-kit is skills/markdown plus one hook and one Copilot extension. This
-# script is install-time plumbing only.
+# orfi-kit is skills/markdown plus six Claude Code hooks and one Copilot
+# extension. This script is install-time plumbing only.
 #
 # Usage:
 #   ./install.ps1                 interactive: asks which runtime(s) to install for

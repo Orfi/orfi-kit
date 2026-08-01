@@ -2,9 +2,9 @@
 #
 # orfi-kit installer.
 #
-# orfi-kit is skills/markdown plus one hook and one Copilot extension. This
-# script is install-time plumbing only: it copies (or symlinks) skills,
-# commands, the sync hook (+ settings.json wiring), and the Copilot extension
+# orfi-kit is skills/markdown plus six Claude Code hooks and one Copilot
+# extension. This script is install-time plumbing only: it copies (or symlinks) skills,
+# commands, the hooks (+ settings.json wiring), and the Copilot extension
 # into the right directories for Claude Code, OpenCode, and/or GitHub Copilot CLI.
 #
 # Usage:

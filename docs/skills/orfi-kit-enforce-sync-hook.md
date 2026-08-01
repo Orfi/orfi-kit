@@ -12,12 +12,19 @@ Passive — it runs automatically. It triggers on any `Bash` command containing 
 
 ## Prerequisites
 
+- Nothing external. The hook reads its payload with `jq` when it is on PATH and falls back to `sed` otherwise, so no tool has to be installed.
 - An epic-derived working branch (any prefix except `master` / `epic/*`; the hook does nothing on those).
 - An `origin` remote.
 - At least one `origin/epic/*` branch to sync against — if none exists, the push is allowed.
 - Optionally, a state file at `<worktree>/.claude/hooks/state/parent-epic` (written by `/orfi-kit-sync-branch`) naming the parent epic; without it the hook auto-discovers the parent.
 
 ## Behavior / rules
+
+- The `git push` command is read from the `PreToolUse` JSON payload on **stdin**, at `.tool_input.command`.
+
+  This is worth stating because it was wrong for the hook's entire life: the command used to be read from a `TOOL_INPUT_command` environment variable that the harness never sets. It was therefore always empty, the `git push` case never matched, and **the hook had never blocked a single push** while appearing to be correctly wired. If you write another hook, take the payload from stdin.
+
+  Parsing uses `jq` when present and `sed` otherwise, per the repo rule that a missing tool must never be the reason a hook stops checking. A payload that cannot be parsed says so on **stderr** and lets the call through — refusing to parse is not grounds to block a push, but staying silent about it is how a broken guardrail passes for a working one.
 
 - Only `git push` commands are intercepted; everything else exits 0 immediately.
 - Only epic-derived working branches (any prefix) are enforced; `master`, `epic/*`, and detached HEAD exit 0.
