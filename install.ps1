@@ -53,6 +53,25 @@ $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
 $BrevityDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-brevity.sh'
 $BrevityCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh"'
 
+# Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
+# repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
+# check the file after. The verifiers have no Copilot equivalent: that SDK exposes
+# only onSessionStart / onUserPromptSubmitted, so it can load conventions but
+# cannot verify an edit. See copilot/extensions/orfi-kit-guardrails/extension.mjs.
+#
+# Matchers are TOOL names (Write|Edit|MultiEdit), never file globs — the *.cs and
+# C++ extension filtering happens inside each hook, from .tool_input.file_path.
+$ConvMatcher = 'Write|Edit|MultiEdit'
+$ConvPreHooks = @(
+    'orfi-kit-load-csharp-conventions.sh'
+    'orfi-kit-load-cpp-conventions.sh'
+)
+$ConvPostHooks = @(
+    'orfi-kit-verify-csharp-format.sh'
+    'orfi-kit-verify-cpp-format.sh'
+)
+$ConvHookNames = $ConvPreHooks + $ConvPostHooks
+
 $ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs','orfi-kit-csharp-code-review','orfi-kit-cpp-code-review')
 
 $CopilotSkillNames = @(
@@ -155,7 +174,7 @@ function Wire-Hook {
     try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
     catch { Say "  $ClaudeSettings is not valid JSON — not touching it. Add manually:"; Say (Get-ManualHookText); return }
 
-    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    Backup-SettingsOnce
     Say "  backed up $ClaudeSettings -> $ClaudeSettings.bak"
 
     if (-not $json.hooks) { $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
@@ -185,7 +204,7 @@ function Unwire-Hook {
     catch { Say "  $ClaudeSettings not valid JSON — leaving it untouched."; return }
     if (-not $json.hooks -or -not $json.hooks.PreToolUse) { return }
 
-    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    Backup-SettingsOnce
     $kept = @($json.hooks.PreToolUse | Where-Object {
         -not ($_.matcher -eq 'Bash' -and ($_.hooks | Where-Object { $_.command -eq $HookCmd }))
     })
@@ -214,7 +233,7 @@ function Wire-BrevityHook {
     try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
     catch { Say "  $ClaudeSettings is not valid JSON — not touching it. Add manually to .hooks.Stop:"; Say (Get-ManualBrevityText); return }
 
-    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    Backup-SettingsOnce
 
     if (-not $json.hooks) { $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
     if (-not $json.hooks.Stop) { $json.hooks | Add-Member -NotePropertyName Stop -NotePropertyValue @() -Force }
@@ -242,13 +261,99 @@ function Unwire-BrevityHook {
     catch { Say "  $ClaudeSettings not valid JSON — leaving it untouched."; return }
     if (-not $json.hooks -or -not $json.hooks.Stop) { return }
 
-    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    Backup-SettingsOnce
     $kept = @($json.hooks.Stop | Where-Object {
         -not ($_.hooks | Where-Object { $_.command -eq $BrevityCmd })
     })
     $json.hooks.Stop = $kept
     ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
     Say "  removed orfi-kit Stop entry from settings.json"
+}
+
+# --- Convention hooks: load before a write, verify after ----------------------
+# Idempotent: an entry is added only when no existing entry already runs that
+# exact command. The settings backup is taken ONCE per run (Backup-SettingsOnce)
+# rather than per hook — otherwise wiring six hooks would overwrite the .bak six
+# times. A pristine pre-orfi-kit copy is kept separately and written only once,
+# because on a re-install settings.json already contains our entries.
+$script:SettingsBackedUp = $false
+function Backup-SettingsOnce {
+    if ($script:SettingsBackedUp) { return }
+    if (-not (Test-Path $ClaudeSettings)) { return }
+    $pristine = "$ClaudeSettings.orfi-orig"
+    if (-not (Test-Path $pristine)) {
+        Copy-Item $ClaudeSettings $pristine -Force
+        Say "  saved pristine pre-orfi-kit copy -> $pristine"
+    }
+    Copy-Item $ClaudeSettings "$ClaudeSettings.bak" -Force
+    Say "  backed up $ClaudeSettings -> $ClaudeSettings.bak"
+    $script:SettingsBackedUp = $true
+}
+
+function Wire-ConventionHooks {
+    foreach ($name in $ConvHookNames) {
+        Place (Join-Path $RepoDir "claude/hooks/$name") (Join-Path $ClaudeHooks $name)
+    }
+
+    $dir = Split-Path -Parent $ClaudeSettings
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path $ClaudeSettings)) { '{}' | Set-Content -Path $ClaudeSettings }
+
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings is not valid JSON — not touching it. Wire the convention hooks manually."; return }
+
+    Backup-SettingsOnce
+
+    if (-not $json.hooks) { $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
+
+    # The verifiers shell out to dotnet format / clang-tidy, which are slower than
+    # a parse — give them a longer timeout than the loaders.
+    foreach ($ev in @('PreToolUse','PostToolUse')) {
+        if ($ev -eq 'PreToolUse') { $names = $ConvPreHooks; $timeout = 10 }
+        else                      { $names = $ConvPostHooks; $timeout = 120 }
+
+        if (-not $json.hooks.$ev) { $json.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue @() -Force }
+
+        foreach ($name in $names) {
+            $cmd = 'bash "$HOME/.claude/hooks/' + $name + '"'
+            $already = @($json.hooks.$ev | Where-Object {
+                $_.hooks | Where-Object { $_.command -eq $cmd }
+            }).Count -gt 0
+            if (-not $already) {
+                $entry = [pscustomobject]@{
+                    matcher = $ConvMatcher
+                    hooks   = @([pscustomobject]@{ type = 'command'; command = $cmd; timeout = $timeout })
+                }
+                $json.hooks.$ev = @($json.hooks.$ev) + $entry
+            }
+        }
+    }
+    ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+    Say "  wired 2 PreToolUse loaders + 2 PostToolUse verifiers into settings.json (idempotent)"
+}
+
+function Unwire-ConventionHooks {
+    foreach ($name in $ConvHookNames) {
+        $p = Join-Path $ClaudeHooks $name
+        if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+    }
+    if (-not (Test-Path $ClaudeSettings)) { return }
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings not valid JSON — leaving it untouched."; return }
+    if (-not $json.hooks) { return }
+
+    Backup-SettingsOnce
+    foreach ($ev in @('PreToolUse','PostToolUse')) {
+        if (-not $json.hooks.$ev) { continue }
+        foreach ($name in $ConvHookNames) {
+            $cmd = 'bash "$HOME/.claude/hooks/' + $name + '"'
+            $json.hooks.$ev = @($json.hooks.$ev | Where-Object {
+                -not ($_.hooks | Where-Object { $_.command -eq $cmd })
+            })
+        }
+    }
+    ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+    Say "  removed orfi-kit convention hook entries from settings.json"
 }
 
 # --- NEW: Copilot extension (verified path ~/.copilot/extensions) ------------
@@ -291,7 +396,7 @@ if (-not ($WantCC -or $WantOC -or $WantCP)) { Die 'no runtime selected' }
 if ($Uninstall) {
     Say ''
     Say 'Uninstalling orfi-kit...'
-    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Unwire-Hook; Unwire-BrevityHook }
+    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks }
     if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds }
     if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension }
     Say 'Done.'
@@ -333,6 +438,9 @@ if ($WantCC) {
     Say ''
     Say 'Installing brevity-enforcement Stop hook (Claude Code):'
     Wire-BrevityHook
+    Say ""
+    Say "Installing convention hooks (Claude Code) — load before a write, verify after:"
+    Wire-ConventionHooks
 }
 
 # --- Copilot CLI + extension -------------------------------------------------

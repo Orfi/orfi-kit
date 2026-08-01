@@ -51,6 +51,24 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 BREVITY_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-brevity.sh"
 BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
 
+# Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
+# repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
+# check the file after. The verifiers have no Copilot equivalent: that SDK has
+# only onSessionStart / onUserPromptSubmitted, so it can load conventions but
+# cannot verify an edit. See copilot/extensions/orfi-kit-guardrails/extension.mjs.
+#
+# Matchers are TOOL names (Write|Edit|MultiEdit), never file globs — the *.cs and
+# C++ extension filtering happens inside each hook, from .tool_input.file_path.
+CONV_HOOK_NAMES=(
+  orfi-kit-load-csharp-conventions.sh
+  orfi-kit-load-cpp-conventions.sh
+  orfi-kit-verify-csharp-format.sh
+  orfi-kit-verify-cpp-format.sh
+)
+CONV_PRE_HOOKS=(orfi-kit-load-csharp-conventions.sh orfi-kit-load-cpp-conventions.sh)
+CONV_POST_HOOKS=(orfi-kit-verify-csharp-format.sh orfi-kit-verify-cpp-format.sh)
+CONV_MATCHER="Write|Edit|MultiEdit"
+
 # The 7 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs orfi-kit-csharp-code-review orfi-kit-cpp-code-review)
 
@@ -177,8 +195,7 @@ wire_hook() {
     return 0
   fi
 
-  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
-  say "  backed up $CLAUDE_SETTINGS -> $CLAUDE_SETTINGS.bak"
+  backup_settings_once
 
   # Idempotent merge: only add a Bash PreToolUse entry running our hook if no
   # existing entry already runs it.
@@ -204,7 +221,7 @@ unwire_hook() {
   command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit PreToolUse entry from $CLAUDE_SETTINGS manually."; return 0; }
   jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1 || { say "  $CLAUDE_SETTINGS not valid JSON — leaving it untouched."; return 0; }
 
-  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  backup_settings_once
   local tmp; tmp="$(mktemp)"
   # Drop only entries whose hooks run our command; clean up empty containers.
   jq --arg cmd "$HOOK_CMD" '
@@ -253,7 +270,7 @@ wire_brevity_hook() {
     return 0
   fi
 
-  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  backup_settings_once
 
   local tmp
   tmp="$(mktemp)"
@@ -276,7 +293,7 @@ unwire_brevity_hook() {
   command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit Stop entry from $CLAUDE_SETTINGS manually."; return 0; }
   jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1 || { say "  $CLAUDE_SETTINGS not valid JSON — leaving it untouched."; return 0; }
 
-  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  backup_settings_once
   local tmp; tmp="$(mktemp)"
   jq --arg cmd "$BREVITY_CMD" '
     if (.hooks.Stop | type) == "array" then
@@ -294,6 +311,129 @@ print_manual_brevity_json() {
       ]
     }
 JSON
+}
+
+# --- Convention hooks: load before a write, verify after ---------------------
+# Four hooks in one pass. Idempotent: the jq merge adds an entry only when no
+# existing entry already runs that exact command, so re-running install never
+# duplicates. The settings backup is taken ONCE per run (see backup_settings_once)
+# rather than per hook — otherwise wiring six hooks would overwrite the .bak six
+# times and the pre-install original would be gone after the second install.
+SETTINGS_BACKED_UP=0
+backup_settings_once() {
+  [ "$SETTINGS_BACKED_UP" -eq 1 ] && return 0
+  [ -f "$CLAUDE_SETTINGS" ] || return 0
+
+  # Rolling backup: settings.json.bak is this run's snapshot, so it is safe to
+  # refresh. But keep a one-time pristine copy of what existed BEFORE orfi-kit
+  # ever touched this file — on a re-install, settings.json already contains our
+  # entries, so overwriting the only backup with it would lose the user's true
+  # original for good. Written once, never again.
+  if [ ! -f "$CLAUDE_SETTINGS.orfi-orig" ]; then
+    cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.orfi-orig"
+    say "  saved pristine pre-orfi-kit copy -> $CLAUDE_SETTINGS.orfi-orig"
+  fi
+
+  cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.bak"
+  say "  backed up $CLAUDE_SETTINGS -> $CLAUDE_SETTINGS.bak"
+  SETTINGS_BACKED_UP=1
+}
+
+print_manual_conventions_json() {
+  cat <<'JSON'
+    Under .hooks.PreToolUse:
+    {
+      "matcher": "Write|Edit|MultiEdit",
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-load-csharp-conventions.sh\"", "timeout": 10 },
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-load-cpp-conventions.sh\"", "timeout": 10 }
+      ]
+    }
+    Under .hooks.PostToolUse:
+    {
+      "matcher": "Write|Edit|MultiEdit",
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\"", "timeout": 120 },
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\"", "timeout": 120 }
+      ]
+    }
+JSON
+}
+
+wire_convention_hooks() {
+  local name
+  for name in "${CONV_HOOK_NAMES[@]}"; do
+    place "$REPO_DIR/claude/hooks/$name" "$CLAUDE_HOOKS/$name"
+    chmod +x "$CLAUDE_HOOKS/$name" 2>/dev/null || true
+  done
+
+  if ! command -v jq >/dev/null 2>&1; then
+    say ""
+    say "  jq not found — cannot auto-wire settings.json. Add these manually:"
+    print_manual_conventions_json
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+  [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
+
+  if ! jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+    say "  $CLAUDE_SETTINGS is not valid JSON — not touching it. Add manually:"
+    print_manual_conventions_json
+    return 0
+  fi
+
+  backup_settings_once
+
+  # The verifiers shell out to dotnet format / clang-tidy, which are slower than a
+  # parse — give them a longer timeout than the loaders.
+  local event hooklist timeout tmp
+  for event in PreToolUse PostToolUse; do
+    if [ "$event" = "PreToolUse" ]; then
+      hooklist=("${CONV_PRE_HOOKS[@]}"); timeout=10
+    else
+      hooklist=("${CONV_POST_HOOKS[@]}"); timeout=120
+    fi
+    for name in "${hooklist[@]}"; do
+      local cmd; cmd="bash \"\$HOME/.claude/hooks/$name\""
+      tmp="$(mktemp)"
+      jq --arg cmd "$cmd" --arg ev "$event" --arg m "$CONV_MATCHER" --argjson t "$timeout" '
+        .hooks //= {} |
+        .hooks[$ev] //= [] |
+        if any(.hooks[$ev][]?; any(.hooks[]?; .command == $cmd))
+        then .
+        else .hooks[$ev] += [{
+          "matcher": $m,
+          "hooks": [{ "type": "command", "command": $cmd, "timeout": $t }]
+        }]
+        end
+      ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+    done
+  done
+  say "  wired 2 PreToolUse loaders + 2 PostToolUse verifiers into settings.json (idempotent)"
+}
+
+unwire_convention_hooks() {
+  local name
+  for name in "${CONV_HOOK_NAMES[@]}"; do
+    [ -e "$CLAUDE_HOOKS/$name" ] && { rm -f "$CLAUDE_HOOKS/$name"; say "  removed $CLAUDE_HOOKS/$name"; }
+  done
+  [ -f "$CLAUDE_SETTINGS" ] || return 0
+  command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit convention entries from $CLAUDE_SETTINGS manually."; return 0; }
+  jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1 || { say "  $CLAUDE_SETTINGS not valid JSON — leaving it untouched."; return 0; }
+
+  backup_settings_once
+
+  local tmp
+  for name in "${CONV_HOOK_NAMES[@]}"; do
+    local cmd; cmd="bash \"\$HOME/.claude/hooks/$name\""
+    tmp="$(mktemp)"
+    jq --arg cmd "$cmd" '
+      (if (.hooks.PreToolUse  | type) == "array" then .hooks.PreToolUse  |= map(select((any(.hooks[]?; .command == $cmd)) | not)) else . end)
+      | (if (.hooks.PostToolUse | type) == "array" then .hooks.PostToolUse |= map(select((any(.hooks[]?; .command == $cmd)) | not)) else . end)
+    ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+  done
+  say "  removed orfi-kit convention hook entries from settings.json"
 }
 
 # --- NEW (beyond trackbed): Copilot extension --------------------------------
@@ -353,6 +493,7 @@ if [ "$MODE" = "uninstall" ]; then
     remove_commands_from "$CLAUDE_CMDS"
     unwire_hook
     unwire_brevity_hook
+    unwire_convention_hooks
   fi
   if [ "$WANT_OC" -eq 1 ]; then
     remove_claude_skills_from "$OPENCODE_SKILLS"
@@ -400,6 +541,9 @@ if [ "$WANT_CC" -eq 1 ]; then
   say ""
   say "Installing brevity-enforcement Stop hook (Claude Code):"
   wire_brevity_hook
+  say ""
+  say "Installing convention hooks (Claude Code) — load before a write, verify after:"
+  wire_convention_hooks
 fi
 
 # --- Copilot CLI (own source, own home, no command file) + extension ---------
