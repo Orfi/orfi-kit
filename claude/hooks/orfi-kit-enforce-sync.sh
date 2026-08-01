@@ -12,7 +12,49 @@
 #
 # Run /orfi-kit-sync-branch to perform these steps automatically.
 
-COMMAND="${TOOL_INPUT_command:-}"
+# The PreToolUse payload arrives as JSON on stdin; the Bash command lives at
+# .tool_input.command. This previously read a TOOL_INPUT_command env var, which
+# the harness never sets — so COMMAND was always empty, the git-push case below
+# never matched, and this hook silently blocked nothing for its entire life.
+#
+# jq is NOT installed on every machine this runs on, so parse with sed as the
+# fallback (see README, "Hooks must not require anything the installer doesn't
+# guarantee"). Never let a missing tool be the reason enforcement stops.
+PAYLOAD="$(cat 2>/dev/null || true)"
+
+if [ -n "$PAYLOAD" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    COMMAND="$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
+  else
+    # Pull the "command" field out of the nested tool_input object. Keeps escaped
+    # quotes intact (\" inside the value) by matching either an escape pair or a
+    # non-quote character, then unescapes what git actually needs to see.
+    COMMAND="$(printf '%s' "$PAYLOAD" \
+      | tr -d '\n' \
+      | sed -n 's/.*"tool_input"[[:space:]]*:[[:space:]]*{[^{}]*"command"[[:space:]]*:[[:space:]]*"\(\(\\.\|[^"\\]\)*\)".*/\1/p' \
+      | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g')"
+    # Fall back to a flat "command" key if the nesting order differs.
+    if [ -z "$COMMAND" ]; then
+      COMMAND="$(printf '%s' "$PAYLOAD" \
+        | tr -d '\n' \
+        | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\(\(\\.\|[^"\\]\)*\)".*/\1/p' \
+        | sed -e 's/\\"/"/g' -e 's/\\\\/\\/g')"
+    fi
+  fi
+else
+  COMMAND=""
+fi
+
+# A payload we cannot parse must not read as "no push". Say so on stderr and let
+# the tool call proceed — refusing to parse is not grounds to block a push, but
+# staying quiet about it is how a broken guardrail passes for a working one.
+if [ -n "$PAYLOAD" ] && [ -z "$COMMAND" ]; then
+  case "$PAYLOAD" in
+    *'"command"'*)
+      echo "orfi-kit-enforce-sync: could not extract .tool_input.command from the PreToolUse payload; sync check skipped for this call." >&2
+      ;;
+  esac
+fi
 
 # Only intercept git push commands
 case "$COMMAND" in
