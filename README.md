@@ -111,6 +111,37 @@ wiring instructions instead. Uninstall removes all six hook files and their sett
 > Auto-wiring requires `jq` (bash) — without it you'll get manual instructions. PowerShell uses
 > built-in JSON support.
 
+### Doc-checker scripts (all runtimes)
+
+The installer also places six files from `scripts/` into the selected runtime's `scripts/` directory
+(`~/.claude/scripts/`, `~/.config/opencode/scripts/`, `~/.copilot/scripts/`):
+
+| Script | What it does |
+| --- | --- |
+| `check-xml-docs.ps1` / `.sh` | Exits 1 when a `public`/`protected`/`static` C# member lacks a `///` block |
+| `check-doxygen-docs.ps1` / `.sh` | Same for exposed declarations in C++ **headers** (`.h .hpp .hh .hxx`); skips `.cpp`, since the API surface lives in the header |
+| `setup-hooks.ps1` / `.sh` | One-time per clone: sets `core.hooksPath .githooks` so `.githooks/pre-commit` fires |
+
+Each pair is a behavioural twin (PowerShell + bash), so a machine with only one of the two still
+enforces. All take `--files <paths>`, `--staged`, or `--changed`.
+
+**These are project tooling, not user-global skills** — which makes their resolution a two-rung
+ladder, the same shape as the config authority ladder above:
+
+1. **The reviewed repo's own `scripts/`** wins. The review skills call them by the *relative* path
+   `scripts/check-…`, which resolves against that repo's cwd.
+2. **The installed copy** is a fallback for a repo that has none.
+
+Copying a checker into a project is still the better answer, because only then can that project's CI
+and its `.githooks/pre-commit` run it. The installer never writes into your project.
+
+`.githooks/pre-commit` runs both checkers over the **staged** files and blocks the commit on a
+violation (`git commit --no-verify` to bypass). `--staged` is right there because the index *is* the
+scope — whereas the review skills use `--files` against the branch diff, since at review time the
+index is usually empty and `--changed` would inspect nothing while exiting 0. Wire it per repo with
+`setup-hooks`; uninstall does **not** unwire it, so run `setup-hooks --unset` (`-Unset`) in any repo
+where you no longer want it.
+
 **Hooks must not require anything the installer doesn't guarantee.** A hook runs on every reply or
 every tool call, long after install, on whatever machine the user has. If it needs a binary that
 isn't there it will usually take the quiet path — exit 0 and enforce nothing — so a guardrail that
@@ -175,8 +206,22 @@ they will never write it for you.
 
 ## Uninstall
 
-Run the same installer with `--uninstall` (bash) or `-Uninstall` (PowerShell) and select the same
-runtime(s). Skills, commands, the hook + its settings entry, and the Copilot extension are removed.
+Run the same installer with `--uninstall` (bash) or `-Uninstall` (PowerShell) and **select the same
+runtime(s) you installed for** — it only cleans what you select, so anything else is left behind.
+Skills, commands, all six hook files + their settings entries, the six `scripts/` files, and the
+Copilot extension are removed. The scripts directory is deleted only if uninstall emptied it, so a
+directory holding scripts of your own survives.
+
+Two things uninstall deliberately does **not** undo: `core.hooksPath` in any repo where you ran
+`setup-hooks` (run `setup-hooks --unset` there), and any copy of a checker you placed in a project's
+own `scripts/` — that file belongs to the project now.
+
+**On re-install:** files are replaced wholesale (`rm -rf` then copy), so the repo is the source of
+truth and local edits to installed copies are lost; `settings.json` is merged rather than
+overwritten, so entries never duplicate. Re-running is therefore the update path. It only ever adds
+and replaces, though — a skill that a later version *renames or drops* leaves its old copy behind,
+since the installer writes its current list rather than diffing a manifest. Uninstall, then install,
+when you want to be certain.
 
 ## License
 

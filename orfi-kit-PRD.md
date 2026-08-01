@@ -176,12 +176,19 @@ orfi-kit/
   claude/
     commands/   <- the 14 orfi-kit-*.md command files
     skills/     <- the 7 orfi-kit-* Claude skill dirs
-    hooks/      <- orfi-kit-enforce-sync.sh, orfi-kit-enforce-brevity.sh
+    hooks/      <- the 6 orfi-kit-*.sh Claude Code hooks (sync, brevity,
+                   2 convention loaders, 2 format verifiers)
   copilot/
     skills/     <- the 21 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
   docs/
     skills/     <- one .md per capability (repo docs; never installed to a runtime)
+  scripts/    <- the doc-presence checkers + git-hook wiring, as .ps1/.sh twins:
+                 check-xml-docs, check-doxygen-docs, setup-hooks. Installed to the
+                 runtime's scripts/ dir as a FALLBACK; a project's own copy wins.
+  .githooks/
+    pre-commit  <- runs both checkers over STAGED files; blocks the commit on a
+                   violation. Wired per clone by setup-hooks (core.hooksPath).
   install.sh
   install.ps1
   README.md
@@ -402,15 +409,34 @@ The implementer can verify completion against this list:
       falling back to the prevailing pattern of the file being changed rather than general C++ norms;
       and (c) cover the C++-specific judgment lanes — memory/lifetime, const correctness, and header
       hygiene.
-- [ ] **Hooks present** — `claude/hooks/orfi-kit-enforce-sync.sh` and
-      `claude/hooks/orfi-kit-enforce-brevity.sh` in the repo; both install to `~/.claude/hooks/`;
-      both remain executable.
+- [ ] **Hooks present** — all six `claude/hooks/orfi-kit-*.sh` in the repo (sync, brevity, the two
+      convention loaders, the two format verifiers); all install to `~/.claude/hooks/`; all remain
+      executable.
 - [ ] **Hook settings wiring** — installer adds the PreToolUse/Bash entry (sync) and the Stop entry
       (brevity, no `matcher` — Stop events are not tool-scoped) to `settings.json` idempotently
       (auto), with manual-instructions fallback for each; uninstall removes both; `settings.json`
       is **merged, never overwritten**, and backed up before write.
 - [ ] **Copilot extension** present (`copilot/extensions/orfi-kit-guardrails/extension.mjs`) and
       installed to the verified Copilot extensions path.
+- [ ] **Doc-checker scripts ship and install** — `scripts/` holds three `.ps1`/`.sh` twin pairs
+      (`check-xml-docs`, `check-doxygen-docs`, `setup-hooks`), all six install to the selected
+      runtime's `scripts/` dir, and uninstall removes them — deleting the directory **only** when
+      uninstall emptied it, never one holding the user's own scripts. Every `.sh` is committed
+      `100755`: a `100644` hook is one git silently refuses to run on POSIX, which reads as a
+      guardrail that passes.
+- [ ] **The checker resolution ladder is a fallback, not an override** — the review skills call the
+      checkers by the *relative* path `scripts/check-…`, so the reviewed repo's own copy wins and the
+      installed copy applies only when that repo has none. The installer never writes into a user's
+      project.
+- [ ] **`.githooks/pre-commit` present and enforcing** — runs both checkers over the **staged** files
+      and exits non-zero on a violation. `--staged` is correct there because the index *is* the
+      scope; the review skills use `--files` against the branch diff instead, since `--changed`
+      resolves to uncommitted work and at review time exits 0 having inspected nothing. When a
+      checker is absent the hook says so on stderr rather than passing quietly.
+- [ ] **Re-install is an update, and its limits are documented** — files are replaced wholesale so
+      the repo stays the source of truth; `settings.json` merges without duplicating. Because the
+      installer writes its current arrays rather than diffing a manifest, a **renamed or dropped**
+      item leaves a stale copy behind; README says so and points at uninstall-then-install.
 - [ ] **Installer runs interactively**, handles **all runtime combos** (1 / 2 / 3 and any
       combination), and the **OpenCode conflict rule** behaves correctly (single skill home; both →
       `~/.claude/skills` + stale OpenCode copy removed; OpenCode-only reuses an existing Claude
