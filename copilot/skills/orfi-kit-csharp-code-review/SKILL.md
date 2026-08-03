@@ -170,6 +170,26 @@ CI will actually enforce.
 
 If a tool can't run, say so plainly and treat the result as unconfirmed rather than clean.
 
+## The mandatory steps, restated as a checklist
+
+`CONTRACT.conf` (next to this file) lists the steps above that are non-negotiable: the
+`orfi-kit-xml-docs` companion, the tool lane, the scope diff, and the `--changed` / `@{u}` traps.
+
+**On Copilot nothing enforces it.** The extension API exposes only `onSessionStart` and
+`onUserPromptSubmitted` — no post-response event — so there is no way to check what actually ran.
+Under Claude Code the same file is enforced by a Stop hook that blocks the report when a step has no
+`tool_use` record. Here it is a checklist held by you alone.
+
+That makes the discipline more important, not less. The failure it guards against is real and
+recurring: a review reported three times in one session with the companion skills never invoked,
+their analysis substituted inline and presented as the gate. So:
+
+- **Never substitute your own reasoning for a mandated companion skill.** Invoke it.
+- **Attempt before declaring unavailable.** `not run (unavailable)` is honest after trying, not
+  instead of trying.
+- **Never report a step as done unless you ran it in this pass.** If you are unsure whether it ran,
+  it did not — run it again.
+
 ## Judge what tools can't
 
 The more valuable half. Tools won't find any of this:

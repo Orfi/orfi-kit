@@ -3,7 +3,7 @@
 # orfi-kit installer (PowerShell) — the cross-platform twin of install.sh.
 # Runs on Windows PowerShell 5+, and pwsh on Windows / macOS / Linux.
 #
-# orfi-kit is skills/markdown plus six Claude Code hooks and one Copilot
+# orfi-kit is skills/markdown plus seven Claude Code hooks and one Copilot
 # extension. This script is install-time plumbing only.
 #
 # Usage:
@@ -33,6 +33,7 @@ $CopilotSkillsSrc = Join-Path $RepoDir 'copilot/skills'
 $CmdsSrc          = Join-Path $RepoDir 'claude/commands'
 $HookSrc          = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-sync.sh'
 $BrevitySrc       = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-brevity.sh'
+$ContractSrc      = Join-Path $RepoDir 'claude/hooks/orfi-kit-verify-skill-contract.sh'
 $ExtSrc           = Join-Path $RepoDir 'copilot/extensions/orfi-kit-guardrails'
 $ScriptsSrc       = Join-Path $RepoDir 'scripts'
 
@@ -71,6 +72,14 @@ $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
 
 $BrevityDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-brevity.sh'
 $BrevityCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh"'
+
+# Skill-contract Stop hook (Claude Code only). Blocks a skill's final report when a
+# step the skill mandates has no tool_use record in the session transcript.
+# Contracts live in CONTRACT.conf beside each SKILL.md and ship with the skill
+# directory, so rules and prose cannot drift apart. No Copilot equivalent: that SDK
+# has no post-response event to hang a verifier on.
+$ContractDest = Join-Path $ClaudeHooks 'orfi-kit-verify-skill-contract.sh'
+$ContractCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh"'
 
 # Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
 # repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
@@ -310,10 +319,71 @@ function Unwire-BrevityHook {
     Say "  removed orfi-kit Stop entry from settings.json"
 }
 
+# --- Skill-contract Stop hook: block reports whose mandated steps never ran ----
+# Same shape as the brevity hook above. Larger timeout: this one greps a whole
+# session transcript rather than measuring a single reply.
+
+function Get-ManualContractText {
+@'
+    {
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\"", "timeout": 30 }
+      ]
+    }
+'@
+}
+
+function Wire-ContractHook {
+    Place $ContractSrc $ContractDest
+
+    $dir = Split-Path -Parent $ClaudeSettings
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path $ClaudeSettings)) { '{}' | Set-Content -Path $ClaudeSettings }
+
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings is not valid JSON — not touching it. Add manually to .hooks.Stop:"; Say (Get-ManualContractText); return }
+
+    Backup-SettingsOnce
+
+    if (-not $json.hooks) { $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
+    if (-not $json.hooks.Stop) { $json.hooks | Add-Member -NotePropertyName Stop -NotePropertyValue @() -Force }
+
+    $already = @($json.hooks.Stop | Where-Object {
+        $_.hooks | Where-Object { $_.command -eq $ContractCmd }
+    }).Count -gt 0
+
+    if ($already) {
+        Say "  skill-contract hook already wired — leaving settings.json unchanged (idempotent)"
+    } else {
+        $entry = [pscustomobject]@{
+            hooks = @([pscustomobject]@{ type = 'command'; command = $ContractCmd; timeout = 30 })
+        }
+        $json.hooks.Stop = @($json.hooks.Stop) + $entry
+        ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+        Say "  wired Stop skill-contract hook into settings.json"
+    }
+}
+
+function Unwire-ContractHook {
+    if (Test-Path $ContractDest) { Remove-Item -Force $ContractDest; Say "  removed $ContractDest" }
+    if (-not (Test-Path $ClaudeSettings)) { return }
+    try { $json = Get-Content -Raw $ClaudeSettings | ConvertFrom-Json }
+    catch { Say "  $ClaudeSettings not valid JSON — leaving it untouched."; return }
+    if (-not $json.hooks -or -not $json.hooks.Stop) { return }
+
+    Backup-SettingsOnce
+    $kept = @($json.hooks.Stop | Where-Object {
+        -not ($_.hooks | Where-Object { $_.command -eq $ContractCmd })
+    })
+    $json.hooks.Stop = $kept
+    ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $ClaudeSettings
+    Say "  removed orfi-kit Stop contract entry from settings.json"
+}
+
 # --- Convention hooks: load before a write, verify after ----------------------
 # Idempotent: an entry is added only when no existing entry already runs that
 # exact command. The settings backup is taken ONCE per run (Backup-SettingsOnce)
-# rather than per hook — otherwise wiring six hooks would overwrite the .bak six
+# rather than per hook — otherwise wiring seven hooks would overwrite the .bak seven
 # times. A pristine pre-orfi-kit copy is kept separately and written only once,
 # because on a re-install settings.json already contains our entries.
 $script:SettingsBackedUp = $false
@@ -436,7 +506,7 @@ if (-not ($WantCC -or $WantOC -or $WantCP)) { Die 'no runtime selected' }
 if ($Uninstall) {
     Say ''
     Say 'Uninstalling orfi-kit...'
-    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Remove-ScriptsFrom $ClaudeScripts; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks }
+    if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Remove-ScriptsFrom $ClaudeScripts; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks; Unwire-ContractHook }
     if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds; Remove-ScriptsFrom $OpencodeScripts }
     if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension; Remove-ScriptsFrom $CopilotScripts }
     Say 'Done.'
@@ -491,6 +561,10 @@ if ($WantCC) {
     Say ""
     Say "Installing convention hooks (Claude Code) — load before a write, verify after:"
     Wire-ConventionHooks
+    Say ""
+    Say "Installing skill-contract Stop hook (Claude Code) — blocks a report whose"
+    Say "mandated steps have no record in the transcript:"
+    Wire-ContractHook
 }
 
 # --- Copilot CLI + extension -------------------------------------------------

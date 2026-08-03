@@ -268,6 +268,22 @@ If a tool can't run — not installed, no config, no compilation database — sa
 result as unconfirmed rather than clean. Missing tooling is extremely common in C++; it narrows the
 review rather than failing it.
 
+## The mandatory steps, restated as a checklist
+
+`CONTRACT.conf` (next to this file) lists what is non-negotiable here: the `orfi-kit-doxygen-docs`
+companion, the scope diff, and the `--changed` / `@{u}` / `clang-format -i` traps. It requires less
+of the toolchain than the C# contract on purpose — missing `clang-format`, `clang-tidy`, and
+`compile_commands.json` are the norm in C++, and a rule that fires on correct behaviour gets ignored.
+
+**On Copilot nothing enforces it** — the extension API has no post-response event, so there is no way
+to check what actually ran. Under Claude Code the same file is enforced by a Stop hook. Here the
+discipline is yours:
+
+- **Never substitute your own reasoning for a mandated companion skill.** Invoke it.
+- **Attempt before declaring unavailable.** In C++ a tool that cannot run is a normal, reportable
+  outcome — but only after you tried.
+- **Never report a step as done unless you ran it in this pass.**
+
 ## Judge what tools can't
 
 The more valuable half, and in C++ it carries more weight than usual, because the tool lane is often

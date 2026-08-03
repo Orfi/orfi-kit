@@ -185,6 +185,29 @@ CI will actually enforce.
 
 If a tool can't run, say so plainly and treat the result as unconfirmed rather than clean.
 
+## This is enforced, not requested
+
+`CONTRACT.conf` (next to this file) restates the mandatory steps above in a form a hook can check:
+the two companion skills, the tool lane, the scope diff, and the `--changed` / `@{u}` traps. The
+`orfi-kit-verify-skill-contract.sh` Stop hook reads the session transcript and **blocks a
+report-shaped reply when any of them has no `tool_use` record.**
+
+This exists because the prose alone did not bind. A review was reported three times in one session
+with `/security-review` and `/orfi-kit-xml-docs` never invoked, their analysis substituted inline and
+presented as the gate — then reported a fourth time claiming one of them had run. So:
+
+- **The record is the evidence, the report is only a claim.** The transcript is written by the
+  harness. Writing "invoked `/security-review`" does not create the record, and the hook reads the
+  record.
+- **Attempt, not success.** A required step is satisfied by the *call*, not its exit code. An
+  unavailable skill or a missing `dotnet` leaves a record and satisfies the contract. `skipped
+  (unavailable)` is honest **after** trying — never instead of trying.
+- **There is no talking past it.** Rewriting the wording without new records blocks again. Judging a
+  step unnecessary is not available; run it and report what it said.
+
+Substituting your own reasoning for a mandated companion skill is the specific failure being
+prevented. If you think a step is redundant, run it anyway and say so in the report.
+
 ## Judge what tools can't
 
 The more valuable half. Tools won't find any of this:

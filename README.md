@@ -61,6 +61,7 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-load-cpp-conventions-hook](docs/skills/orfi-kit-load-cpp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C++ rules before a source/header is written**: the nearest `.clang-format` and `.clang-tidy` `readability-identifier-naming.*` keys (paired with their values). Detects whether `compile_commands.json` exists and says so when `clang-tidy` would be inert without it. Treats "no config at all" as the normal C++ case and **falls back to the kit's own baseline from the code-review skill's `CONFIG.md`, enforced as the contract** — repo config still wins whenever it exists. Read-only; never proposes bulk renames. | Claude Code hook | Nothing — uses `jq` when present, falls back to `sed` |
 | [orfi-kit-verify-csharp-format-hook](docs/skills/orfi-kit-verify-csharp-format-hook.md) | PostToolUse hook that runs `dotnet format --verify-no-changes` scoped to the edited file right **after** it is written, reporting violations with file/line/column. Findings are delivered via `hookSpecificOutput.additionalContext` (plus a copy on stderr), not just printed to a transcript nobody reads. Advisory by default (`ORFI_CSHARP_FORMAT_BLOCKING=1` to block). | Claude Code hook | The .NET SDK and a `.csproj` above the file — says so on stderr and exits 0 when either is missing, never a silent pass |
 | [orfi-kit-verify-cpp-format-hook](docs/skills/orfi-kit-verify-cpp-format-hook.md) | PostToolUse hook that runs `clang-format --dry-run --Werror` after a C/C++ write, plus `clang-tidy` **only** when a `compile_commands.json` exists — otherwise it reports that naming is unverified rather than clean. Findings are delivered via `hookSpecificOutput.additionalContext` (plus a copy on stderr). Advisory by default (`ORFI_CPP_FORMAT_BLOCKING=1` to block). | Claude Code hook | `clang-format` / `clang-tidy` and a compilation database for the naming half; every absence is reported on stderr |
+| [orfi-kit-verify-skill-contract-hook](docs/skills/orfi-kit-verify-skill-contract-hook.md) | Stop hook that **blocks a skill's final report when a mandated step has no `tool_use` record** in the session transcript. Reads a `CONTRACT.conf` beside the skill's `SKILL.md` (shipped for both code-review skills: companion skills, tool lane, scope diff, and the `--changed` / `@{u}` / `clang-format -i` traps). Fires only when a contract is open *and* the reply is report-shaped, so mid-review turns are untouched. Satisfied by the **attempt**, not the exit code — an unavailable tool still leaves a record, so `skipped (unavailable)` stays honest after trying rather than instead of trying. Distinguishes a step never run from one the report *claims* ran. No conversational escape hatch by design; `ORFI_SKILL_CONTRACT_OFF=1` disables it. | Claude Code hook | A Stop-hook-capable Claude Code. Uses `jq` when present, falls back to `grep`/`sed`. No Copilot equivalent — that SDK has no post-response event |
 | [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long, **plus** the C#/C++ coding conventions — scoped to the languages actually present in the workspace — so code is written against the repo's own config instead of corrected at review time. Loads conventions but cannot verify a written file: the SDK has no per-edit event. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 
 ## Install
@@ -84,12 +85,15 @@ runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI — one or severa
 
 ### Hook wiring (Claude Code)
 
-When you install for Claude Code, the installer places six hooks in `~/.claude/hooks/` and wires
+When you install for Claude Code, the installer places seven hooks in `~/.claude/hooks/` and wires
 each into `~/.claude/settings.json`:
 
 - `orfi-kit-enforce-sync.sh` → a **PreToolUse/Bash** entry (blocks unsynced `git push`).
 - `orfi-kit-enforce-brevity.sh` → a **Stop** entry (blocks over-long replies; ~25-line limit,
   override with `ORFI_BREVITY_MAX_LINES`, auto-lifted when the user asks for depth).
+- `orfi-kit-verify-skill-contract.sh` → a **Stop** entry (blocks a skill's final report when a step
+  it mandates has no `tool_use` record in the transcript; reads `CONTRACT.conf` beside the skill,
+  disable with `ORFI_SKILL_CONTRACT_OFF=1`).
 - `orfi-kit-load-csharp-conventions.sh` and `orfi-kit-load-cpp-conventions.sh` → two
   **PreToolUse/`Write|Edit|MultiEdit`** entries that emit the repo's own rules *before* a file is
   written. Advisory.

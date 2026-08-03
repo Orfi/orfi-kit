@@ -284,6 +284,28 @@ If a tool can't run — not installed, no config, no compilation database — sa
 result as unconfirmed rather than clean. Missing tooling is extremely common in C++; it narrows the
 review rather than failing it.
 
+## This is enforced, not requested
+
+`CONTRACT.conf` (next to this file) restates the unconditional steps above in a form a hook can
+check: the two companion skills, the scope diff, and the `--changed` / `@{u}` / `clang-format -i`
+traps. The `orfi-kit-verify-skill-contract.sh` Stop hook reads the session transcript and **blocks a
+report-shaped reply when any of them has no `tool_use` record.**
+
+It deliberately requires *less* than the C# contract. Missing `clang-format`, `clang-tidy`, and
+`compile_commands.json` are the norm here, and a gate that fires on correct behaviour gets bypassed
+and then ignored. So the build and test commands stay prose-mandated — they vary too much per project
+to pin to literal strings — while the two companions and the diff are enforced.
+
+- **The record is the evidence, the report is only a claim.** The transcript is written by the
+  harness; asserting a step ran does not create its record.
+- **Attempt, not success.** The *call* satisfies the contract, not its exit code. In C++ especially,
+  a tool that cannot run is a normal and reportable outcome — but `skipped (unavailable)` is honest
+  after trying, not instead of trying.
+- **There is no talking past it.** Rewriting the report without new records blocks again.
+
+Substituting your own reasoning for a mandated companion skill is the specific failure being
+prevented.
+
 ## Judge what tools can't
 
 The more valuable half, and in C++ it carries more weight than usual, because the tool lane is often

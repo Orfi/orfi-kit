@@ -2,7 +2,7 @@
 #
 # orfi-kit installer.
 #
-# orfi-kit is skills/markdown plus six Claude Code hooks and one Copilot
+# orfi-kit is skills/markdown plus seven Claude Code hooks and one Copilot
 # extension. This script is install-time plumbing only: it copies (or symlinks) skills,
 # commands, the hooks (+ settings.json wiring), and the Copilot extension
 # into the right directories for Claude Code, OpenCode, and/or GitHub Copilot CLI.
@@ -54,6 +54,17 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 
 BREVITY_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-brevity.sh"
 BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
+
+# Skill-contract Stop hook (Claude Code only). Blocks a skill's final report when
+# a step the skill mandates has no tool_use record in the session transcript.
+# Contracts live in CONTRACT.conf beside each SKILL.md, so a skill and its
+# enforced rules install together and cannot drift apart.
+#
+# No Copilot equivalent: that SDK exposes only onSessionStart and
+# onUserPromptSubmitted — no post-response event — so there is nothing to hang a
+# verifier on. Same asymmetry already documented for the brevity guardrail.
+CONTRACT_DEST="$CLAUDE_HOOKS/orfi-kit-verify-skill-contract.sh"
+CONTRACT_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\""
 
 # Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
 # repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
@@ -354,11 +365,80 @@ print_manual_brevity_json() {
 JSON
 }
 
+# --- Skill-contract Stop hook: block reports whose mandated steps never ran ----
+# Same shape as the brevity hook above (Stop events take no matcher). The timeout
+# is larger: this one greps a whole session transcript, which grows over a long
+# session, rather than measuring a single reply.
+
+wire_contract_hook() {
+  place "$REPO_DIR/claude/hooks/orfi-kit-verify-skill-contract.sh" "$CONTRACT_DEST"
+  chmod +x "$CONTRACT_DEST" 2>/dev/null || true
+
+  if ! command -v jq >/dev/null 2>&1; then
+    say ""
+    say "  jq not found — cannot auto-wire settings.json. Add this manually to"
+    say "  $CLAUDE_SETTINGS under .hooks.Stop:"
+    print_manual_contract_json
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+  [ -f "$CLAUDE_SETTINGS" ] || echo '{}' > "$CLAUDE_SETTINGS"
+
+  if ! jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+    say "  $CLAUDE_SETTINGS is not valid JSON — not touching it. Add manually:"
+    print_manual_contract_json
+    return 0
+  fi
+
+  backup_settings_once
+
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg cmd "$CONTRACT_CMD" '
+    .hooks //= {} |
+    .hooks.Stop //= [] |
+    if any(.hooks.Stop[]?; any(.hooks[]?; .command == $cmd))
+    then .
+    else .hooks.Stop += [{
+      "hooks": [{ "type": "command", "command": $cmd, "timeout": 30 }]
+    }]
+    end
+  ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+  say "  wired Stop skill-contract hook into settings.json (idempotent)"
+}
+
+unwire_contract_hook() {
+  [ -e "$CONTRACT_DEST" ] && { rm -f "$CONTRACT_DEST"; say "  removed $CONTRACT_DEST"; }
+  [ -f "$CLAUDE_SETTINGS" ] || return 0
+  command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit Stop contract entry from $CLAUDE_SETTINGS manually."; return 0; }
+  jq empty "$CLAUDE_SETTINGS" >/dev/null 2>&1 || { say "  $CLAUDE_SETTINGS not valid JSON — leaving it untouched."; return 0; }
+
+  backup_settings_once
+  local tmp; tmp="$(mktemp)"
+  jq --arg cmd "$CONTRACT_CMD" '
+    if (.hooks.Stop | type) == "array" then
+      .hooks.Stop |= map(select((any(.hooks[]?; .command == $cmd)) | not))
+    else . end
+  ' "$CLAUDE_SETTINGS" > "$tmp" && mv "$tmp" "$CLAUDE_SETTINGS"
+  say "  removed orfi-kit Stop contract entry from settings.json"
+}
+
+print_manual_contract_json() {
+  cat <<'JSON'
+    {
+      "hooks": [
+        { "type": "command", "command": "bash \"$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\"", "timeout": 30 }
+      ]
+    }
+JSON
+}
+
 # --- Convention hooks: load before a write, verify after ---------------------
 # Four hooks in one pass. Idempotent: the jq merge adds an entry only when no
 # existing entry already runs that exact command, so re-running install never
 # duplicates. The settings backup is taken ONCE per run (see backup_settings_once)
-# rather than per hook — otherwise wiring six hooks would overwrite the .bak six
+# rather than per hook — otherwise wiring seven hooks would overwrite the .bak seven
 # times and the pre-install original would be gone after the second install.
 SETTINGS_BACKED_UP=0
 backup_settings_once() {
@@ -536,6 +616,7 @@ if [ "$MODE" = "uninstall" ]; then
     unwire_hook
     unwire_brevity_hook
     unwire_convention_hooks
+    unwire_contract_hook
   fi
   if [ "$WANT_OC" -eq 1 ]; then
     remove_claude_skills_from "$OPENCODE_SKILLS"
@@ -598,6 +679,10 @@ if [ "$WANT_CC" -eq 1 ]; then
   say ""
   say "Installing convention hooks (Claude Code) — load before a write, verify after:"
   wire_convention_hooks
+  say ""
+  say "Installing skill-contract Stop hook (Claude Code) — blocks a report whose"
+  say "mandated steps have no record in the transcript:"
+  wire_contract_hook
 fi
 
 # --- Copilot CLI (own source, own home, no command file) + extension ---------
