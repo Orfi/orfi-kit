@@ -6,17 +6,32 @@
 # `git config core.hooksPath .githooks`, so .githooks/pre-commit fires on every
 # commit. Behavioural twin of setup-hooks.ps1 — keep the two in sync.
 #
+# Also sets this clone's commit identity (see COMMIT_NAME/COMMIT_EMAIL below).
+# This is a personal repo, and a machine whose GLOBAL git config carries a work
+# identity would otherwise stamp it on every commit here. Both author AND
+# committer must be covered: the committer is taken from config independently and
+# is the one that leaks unnoticed, since only the author is usually displayed.
+#
 # One-time per clone. Git does not share hook config across clones or worktrees,
-# so each needs this once.
+# so each needs this once. .git/config is not a tracked file — it cannot be
+# committed — which is exactly why this belongs in a script that ships.
 #
 # The hook it wires runs the doc-presence checkers on staged files: *.cs via
 # check-xml-docs, and headers (.h/.hpp/.hh/.hxx) via check-doxygen-docs.
 #
 # Usage:
-#   bash scripts/setup-hooks.sh            # wire the hook up
+#   bash scripts/setup-hooks.sh            # wire the hook up + set commit identity
 #   bash scripts/setup-hooks.sh --unset    # revert to .git/hooks (disable)
+#
+# --unset reverts the hook path only. It deliberately leaves the identity alone:
+# unsetting it would silently restore a work identity on a personal repo, which is
+# the failure this guards against. Remove it by hand if you ever need to.
 
 set -uo pipefail
+
+# This clone's commit identity. Edit these two if you fork the kit.
+COMMIT_NAME="Orfi"
+COMMIT_EMAIL="waelorfi@aucegypt.edu"
 
 if [ -t 1 ]; then
   RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RESET=$'\033[0m'
@@ -43,6 +58,27 @@ fi
 
 git config core.hooksPath .githooks
 printf '%sSet core.hooksPath = .githooks%s\n' "$GREEN" "$RESET"
+
+# Repo-local identity, overriding whatever the global config says. Reported rather
+# than applied silently: a changed commit identity is something you should see.
+git config user.name  "$COMMIT_NAME"
+git config user.email "$COMMIT_EMAIL"
+printf '%sSet commit identity = %s <%s>%s\n' "$GREEN" "$COMMIT_NAME" "$COMMIT_EMAIL" "$RESET"
+
+# Verify it resolves, and say so if a global value still wins. `git var` reports
+# the identity git would actually use, which is the only check that matters here.
+ACTUAL_AUTHOR="$(git var GIT_AUTHOR_IDENT 2>/dev/null | sed 's/ [0-9]* [+-][0-9]*$//')"
+ACTUAL_COMMITTER="$(git var GIT_COMMITTER_IDENT 2>/dev/null | sed 's/ [0-9]* [+-][0-9]*$//')"
+EXPECTED="$COMMIT_NAME <$COMMIT_EMAIL>"
+if [ "$ACTUAL_AUTHOR" = "$EXPECTED" ] && [ "$ACTUAL_COMMITTER" = "$EXPECTED" ]; then
+  printf '%sVerified: author and committer both resolve to %s%s\n' "$GREEN" "$EXPECTED" "$RESET"
+else
+  printf '%swarning: identity did not take as expected.%s\n' "$YELLOW" "$RESET"
+  printf '  author:    %s\n' "$ACTUAL_AUTHOR"
+  printf '  committer: %s\n' "$ACTUAL_COMMITTER"
+  printf '  expected:  %s\n' "$EXPECTED"
+  printf '  Check for GIT_AUTHOR_* / GIT_COMMITTER_* env vars, which outrank config.\n'
+fi
 
 # Set the bit on disk AND in the index — git tracks the mode, so a clone made on
 # another machine needs it recorded, not just applied locally.
