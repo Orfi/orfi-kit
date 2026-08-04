@@ -5,6 +5,16 @@ do. **The repo under review always wins** — if it has its own `.editorconfig`,
 and this file is only a reference. Never flag a violation of this baseline in a repo that has its
 own rules.
 
+**Where the repo encodes nothing, this baseline becomes the contract** — judge against it and report
+deviation as a finding, citing the baseline key. It is not merely offered for adoption. The write-time
+surfaces already hold authors to exactly that: the guardrails extension instructs them to treat this
+baseline as the contract for a repo that encodes nothing and to report deviation as a violation. A rule
+enforced when code is written but ignored when it's reviewed is worse than no rule.
+
+Say which standard you used — a review judged against this baseline and one judged against a repo's
+own `.editorconfig` are different reviews, and the report's Sources line must name which. Only fall
+through to the prevailing pattern of the surrounding code where *this baseline is also silent*.
+
 ## Where rules come from
 
 Read these before making any style or naming call. `.editorconfig` resolves nearest-file-wins up the

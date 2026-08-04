@@ -231,21 +231,26 @@ unranked per-file reports isn't a review.
 
 ## Where a style finding gets its authority
 
-If a convention isn't encoded anywhere, there's nothing to enforce — and inventing a rule from
-general C# habit is the mistake this skill exists to avoid. Say which of these a style finding rests
-on:
+Inventing a rule from general C# habit is the mistake this skill exists to avoid. But **"not in the
+repo's config" does not mean "no rule"** — the ladder continues to the kit baseline. Say which of
+these a style finding rests on:
 
-1. **Repo config** — cite the key. This is the one that makes something a real violation.
+1. **Repo config** — cite the key. This is the strongest rung and it always wins when it exists.
 2. **Analyzer or SDK default in effect** — cite the diagnostic ID.
-3. **Prevailing pattern** — if most existing fields are `_camelCase`, that's the de facto style; cite
-   examples and call it an unenforced convention. Worth mentioning, not worth blocking.
-4. **Nothing** — leave it alone.
+3. **The kit baseline in `CONFIG.md`** — when the repo encodes nothing, this is the contract, not a
+   suggestion. The guardrails extension already instructs the author to treat it as the contract and
+   report deviation as a violation, so reviewing the same code as though no rule existed would
+   contradict the standard the author was held to. Cite the baseline key. It never overrides repo
+   config — it fills the vacuum, and only the vacuum.
+4. **Prevailing pattern** — where the baseline is silent, if most existing fields are `_camelCase`
+   that's the de facto style; cite examples and call it an unenforced convention.
+5. **Nothing** — leave it alone.
 
-No `.editorconfig` at all? Worth mentioning as a recommendation, since CI can't enforce style
-without one — but it's a gap in the repo, not a problem with the change. `dotnet format`'s whitespace
-pass still works from built-in defaults, and everything in the judgment section is unaffected.
-`CONFIG.md` has a baseline you can offer as a starting point; it's a seed to adopt, not a rule to
-enforce against a repo that already has its own.
+No `.editorconfig` at all? Still recommend adopting one, since without it CI can't enforce style
+mechanically — that's a gap in the repo, not a defect in the change. But don't treat the absence as
+licence to skip style review: judge against rung 3, say you did, and note that the rule is currently
+enforced by review rather than by the build. `dotnet format`'s whitespace pass still works from
+built-in defaults, and everything in the judgment section is unaffected.
 
 ## Focus modes
 
@@ -269,6 +274,8 @@ review.
 - **Scope** — what was reviewed, the base it diffed against, and the focus if you narrowed it.
 - **Sources** — the config you read, and which source-of-truth rung you judged intent against (or
   that none was found). A reader should never have to guess what the review was measured against.
+  Say explicitly whether style was judged against **repo config or the `CONFIG.md` baseline** — those
+  are different standards, and "no `.editorconfig`" must never read as "style unchecked".
 - **Tools** — each command, its verdict, the output. Anything that couldn't run, and why.
 - **Findings** — most important first, with `file:line`. For style findings, which authority rung
   and which config key.

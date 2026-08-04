@@ -291,10 +291,25 @@ check: the two companion skills, the scope diff, and the `--changed` / `@{u}` / 
 traps. The `orfi-kit-verify-skill-contract.sh` Stop hook reads the session transcript and **blocks a
 report-shaped reply when any of them has no `tool_use` record.**
 
-It deliberately requires *less* than the C# contract. Missing `clang-format`, `clang-tidy`, and
-`compile_commands.json` are the norm here, and a gate that fires on correct behaviour gets bypassed
-and then ignored. So the build and test commands stay prose-mandated — they vary too much per project
-to pin to literal strings — while the two companions and the diff are enforced.
+It deliberately requires *less* than the C# contract, and the reason matters when you write the
+report. **Keep rules and executables apart:**
+
+- **Rules are never missing.** If the repo ships `.clang-format` / `.clang-tidy`, that config is the
+  contract. If it ships neither — the common C++ case — fall back to `CONFIG.md`'s baseline and
+  enforce that, which is what the write-time conventions hook already does. So "no config" never
+  means "nothing to check", and a style finding always has an authority to cite. Absent repo config,
+  cite the baseline; never go silent, and never invent a rule from general C++ habit.
+- **Executables genuinely may be absent.** `clang-format`, `clang-tidy`, and the build/test drivers
+  are separate installs, and `clang-tidy` additionally needs a `compile_commands.json` you are not
+  allowed to generate — that's a build action, not a review action. This is the real asymmetry with
+  C#, where `format`, `build`, and `test` all ship with the SDK.
+
+The contract can only require *commands*, so only the second bullet constrains it: requiring
+`clang-tidy` where no compilation database exists would fire the gate on correct behaviour, and a gate
+that cries wolf gets bypassed and then ignored. Build and test commands also vary too much per project
+(`make`, `ninja`, `msbuild`, `ctest`, a project script) to pin to literal strings. They stay
+prose-mandated — a missing *tool* narrows the review and must be named as unconfirmed; a missing
+*config* does not narrow anything, because the baseline still governs.
 
 - **The record is the evidence, the report is only a claim.** The transcript is written by the
   harness; asserting a step ran does not create its record.
@@ -357,24 +372,32 @@ reports isn't a review.
 
 ## Where a style finding gets its authority
 
-If a convention isn't encoded anywhere, there's nothing to enforce — and inventing a rule from general
-C++ habit is the mistake this skill exists to avoid. This matters more in C++ than in C#, because rung
-1 is usually empty. Say which rung a style finding rests on:
+Inventing a rule from general C++ habit is the mistake this skill exists to avoid. But **"no repo
+config" does not mean "no rule"** — rung 1 is usually empty in C++, and the ladder continues. Say
+which rung a style finding rests on:
 
 1. **Repo config** — `.clang-format`, `.clang-tidy`, compiler flags. Cite the key or the check name.
-   This is the one that makes something a real violation.
+   This is the strongest rung and it always wins when it exists.
 2. **Tool default in effect** — cite the check name (e.g. `readability-identifier-naming`).
-3. **Prevailing pattern** — if the surrounding file and its siblings consistently use `m_` for members
-   and `SCREAMING_SNAKE` for constants, that's the de facto style; cite examples with `file:line` and
-   call it an unenforced convention. Worth mentioning, not worth blocking. Prefer the pattern in the
+3. **The kit baseline in `CONFIG.md`** — when the repo encodes nothing, this is the contract, not a
+   suggestion. The write-time conventions hook (`orfi-kit-load-cpp-conventions.sh`) already enforces
+   it as the contract while the file is being written, so reviewing the same code as though no rule
+   existed would contradict the gate the author was held to. Cite the baseline key. It never overrides
+   repo config — it fills the vacuum, and only the vacuum.
+4. **Prevailing pattern** — where the baseline is silent, the surrounding file and its siblings decide;
+   cite examples with `file:line` and call it an unenforced convention. Prefer the pattern in the
    **file being changed** over a project-wide guess: C++ projects often mix styles across modules, and
    consistency with immediate neighbours beats consistency with a distant average.
-4. **Nothing** — leave it alone.
+5. **Nothing** — leave it alone.
 
-No `.clang-format` or `.clang-tidy` at all? Worth mentioning as a recommendation, since neither CI nor
-a local build can enforce style without them — but it's a gap in the repo, not a problem with the
-change. Everything in the judgment section is unaffected. `CONFIG.md` has a baseline you can offer as
-a starting point; it's a seed to adopt, not a rule to enforce against a repo that already has its own.
+No `.clang-format` or `.clang-tidy` at all? Still recommend adopting them, since without them neither
+CI nor a local build can enforce anything mechanically — that's a gap in the repo, not a defect in the
+change. But do not treat the absence as licence to skip style review: judge against rung 3, say you
+did, and note that the rule is currently enforced by review rather than by the build.
+
+Keep this separate from a missing **executable**. A rule you cannot find has a fallback; a tool that
+isn't installed does not. `clang-format` / `clang-tidy` being absent makes the *tool lane* unconfirmed
+and must be said plainly — it does not make the style rules unknowable.
 
 ## Focus modes
 
@@ -399,7 +422,9 @@ review.
   paths you excluded as vendored or generated.
 - **Sources** — the config you read (or that none existed), which source-of-truth rung you judged
   intent against, and the ownership mode you resolved plus where it came from. A reader should never
-  have to guess what the review was measured against.
+  have to guess what the review was measured against. Say explicitly whether style was judged against
+  **repo config or the `CONFIG.md` baseline** — those are different standards, and "no `.clang-format`"
+  must never read as "style unchecked".
 - **Tools** — each command, its verdict, the output. Anything that couldn't run, and why.
 - **Findings** — most important first, with `file:line`. For style findings, which authority rung and
   which config key or check name.

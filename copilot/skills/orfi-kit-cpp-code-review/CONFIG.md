@@ -7,8 +7,22 @@ that has its own rules.
 
 Expect to need this file. Unlike C#, where `.editorconfig` is near-universal, most C++ repos ship no
 `.clang-format` or `.clang-tidy` at all — so "no encoded rule" is the normal case, not the exception.
-When that's true, fall back to the prevailing pattern in the file you're reviewing and offer this
-baseline as something to adopt.
+
+**When that's true, this baseline becomes the contract.** Not a suggestion, not something merely
+offered for adoption: judge the code against it and report deviation as a finding, citing the baseline
+key. The guardrails extension already holds authors to exactly that: it instructs them to treat this
+baseline as the contract for a repo that encodes nothing and to report deviation as a violation.
+Reviewing that code as though no rule existed would contradict the standard its author was held to,
+and a rule enforced when code is written but ignored when it's reviewed is worse than no rule at all.
+
+Two consequences worth stating plainly:
+
+- **Say which standard you used.** A review judged against this baseline and one judged against a
+  repo's own config are different reviews. Name the one you used in the report's Sources line.
+- **Missing config is not missing rules.** Only fall through to the prevailing pattern of the file
+  where *this baseline is also silent*. And keep it distinct from a missing **executable**:
+  `clang-format` or `clang-tidy` not being installed makes the tool lane unconfirmed, but it does not
+  make the rules unknowable — they are in this file.
 
 ## Where rules come from
 
