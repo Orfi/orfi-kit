@@ -745,7 +745,25 @@ remove_shared_hooks() {
   done
 }
 
-install_copilot_hooks() { place "$COPILOT_HOOKS_SRC/orfi-kit.json" "$COPILOT_HOOKS/orfi-kit.json"; }
+install_copilot_hooks() {
+  # The registry command strings reference the hook scripts by an ABSOLUTE
+  # forward-slash path baked at install time (placeholder @ORFI_COPILOT_HOME@).
+  # $HOME cannot be used at runtime: the bash Copilot spawns on Windows reports
+  # $HOME=/home/<user> instead of the profile, so the earlier $HOME-based
+  # command failed closed. cygpath -m converts the msys home to the
+  # C:/Users/... form, which both PowerShell and Git Bash resolve; without
+  # cygpath (Linux/macOS) $HOME is already the right absolute POSIX path.
+  local hooks_home
+  if command -v cygpath >/dev/null 2>&1; then
+    hooks_home="$(cygpath -m "$HOME")"
+  else
+    hooks_home="$HOME"
+  fi
+  mkdir -p "$COPILOT_HOOKS"
+  # --link is ignored for this single file: a symlink would keep the placeholder.
+  sed "s|@ORFI_COPILOT_HOME@|$hooks_home|g" "$COPILOT_HOOKS_SRC/orfi-kit.json" > "$COPILOT_HOOKS/orfi-kit.json"
+  say "  wrote $COPILOT_HOOKS/orfi-kit.json (script home: $hooks_home)"
+}
 
 remove_copilot_hooks() {
   if [ -e "$COPILOT_HOOKS/orfi-kit.json" ] || [ -L "$COPILOT_HOOKS/orfi-kit.json" ]; then

@@ -640,7 +640,23 @@ function Remove-SharedHooks {
     }
 }
 
-function Install-CopilotHooks { Place (Join-Path $CopilotHooksSrc 'orfi-kit.json') (Join-Path $CopilotHooks 'orfi-kit.json') }
+function Install-CopilotHooks {
+    # The registry command strings reference the hook scripts by an ABSOLUTE
+    # forward-slash path baked at install time (placeholder @ORFI_COPILOT_HOME@).
+    # $HOME cannot be used at runtime: the bash Copilot spawns on Windows reports
+    # $HOME=/home/<user> instead of the profile, so a $HOME-based command would
+    # still fail closed. USERPROFILE (falling back to $Home_) is the real
+    # profile; forward slashes resolve in both PowerShell and Git Bash.
+    $src = Join-Path $CopilotHooksSrc 'orfi-kit.json'
+    $dest = Join-Path $CopilotHooks 'orfi-kit.json'
+    if (-not (Test-Path $CopilotHooks)) { New-Item -ItemType Directory -Path $CopilotHooks -Force | Out-Null }
+    $raw = Get-Content $src -Raw
+    $hooksHome = if ($env:USERPROFILE) { $env:USERPROFILE } else { $Home_ }
+    $hooksHome = $hooksHome.TrimEnd('\') -replace '\\', '/'
+    $rendered = $raw -replace '@ORFI_COPILOT_HOME@', $hooksHome
+    [System.IO.File]::WriteAllText($dest, $rendered, [System.Text.UTF8Encoding]::new($false))
+    Say "  wrote $dest (script home: $hooksHome)"
+}
 
 function Remove-CopilotHooks {
     $p = Join-Path $CopilotHooks 'orfi-kit.json'
