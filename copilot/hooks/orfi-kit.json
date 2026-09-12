@@ -6,7 +6,7 @@
         "type": "command",
         "matcher": "Bash",
         "bash": "bash \"$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\"",
-        "powershell": "& bash \"$env:USERPROFILE\\.claude\\hooks\\orfi-kit-enforce-sync.sh\"",
+        "powershell": "& bash -c 'bash \"$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\"'",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 10
       }
@@ -16,7 +16,7 @@
         "type": "command",
         "matcher": "Write|Edit|MultiEdit",
         "bash": "bash \"$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\"",
-        "powershell": "& bash \"$env:USERPROFILE\\.claude\\hooks\\orfi-kit-verify-csharp-format.sh\"",
+        "powershell": "& bash -c 'bash \"$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\"'",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 120
       },
@@ -24,7 +24,7 @@
         "type": "command",
         "matcher": "Write|Edit|MultiEdit",
         "bash": "bash \"$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\"",
-        "powershell": "& bash \"$env:USERPROFILE\\.claude\\hooks\\orfi-kit-verify-cpp-format.sh\"",
+        "powershell": "& bash -c 'bash \"$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\"'",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 120
       }
@@ -33,14 +33,14 @@
       {
         "type": "command",
         "bash": "bash \"$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\"",
-        "powershell": "& bash \"$env:USERPROFILE\\.claude\\hooks\\orfi-kit-enforce-brevity.sh\"",
+        "powershell": "& bash -c 'bash \"$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\"'",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 10
       },
       {
         "type": "command",
         "bash": "bash \"$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\"",
-        "powershell": "& bash \"$env:USERPROFILE\\.claude\\hooks\\orfi-kit-verify-skill-contract.sh\"",
+        "powershell": "& bash -c 'bash \"$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\"'",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 30
       }

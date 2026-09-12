@@ -35,12 +35,13 @@ The `Stop` scripts were written against Claude transcripts. On Copilot the trans
 
 ## Prerequisites
 
-- The seven hook scripts deployed to `~/.claude/hooks/` (the installer does this when any runtime that needs them is selected — Copilot included). On Windows the `powershell` field invokes Git Bash explicitly (`& bash …`), so Git Bash must be installed; the `bash` field path resolves `$HOME` at runtime.
+- The seven hook scripts deployed to `~/.claude/hooks/` (the installer does this when any runtime that needs them is selected — Copilot included). On Windows the `powershell` field invokes Git Bash explicitly and must be present; the `bash` field path resolves `$HOME` at runtime.
 
 ## Behavior / rules
 
 - Installed by the twin installers to `~/.copilot/hooks/orfi-kit.json`; uninstall removes it. It coexists with any other `*.json` in that directory (e.g. `gsd-session.json`).
-- `env` carries `ORFI_HOOK_PLATFORM=copilot`; the `bash` / `powershell` fields expand `$HOME` / `$env:USERPROFILE` at invocation so the installed location is never baked in.
+- `env` carries `ORFI_HOOK_PLATFORM=copilot`. Both `bash` and `powershell` fields resolve the script via `$HOME` **inside a single-quoted `bash -c` body** (`& bash -c 'bash "$HOME/.claude/hooks/…"'`), so a Windows-style path never crosses the PowerShell→Git Bash argument boundary. Passing a `$env:USERPROFILE\.claude\…` path through that boundary mangles it (backslashes stripped → `C:Users…: No such file`), and every such hook then fails **closed** in Copilot — one mangled hook denies all tool calls. Keep the `bash -c '…'` quoting form exactly as shipped.
+- **Cross-tool trap (not this file):** Copilot CLI also loads a *repository's* `.claude/settings.json` / `.claude/settings.local.json` as extra hook sources. On Windows such hooks fail closed too: Copilot runs the `command` string via PowerShell and does **not** set `$CLAUDE_PROJECT_DIR`, so a Claude-style `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/…"` becomes `bash /.claude/hooks/…` (github/copilot-cli#4001). Symptom: `Denied by preToolUse hook from "repo settings" (hook errored)` for *every* tool call. Workaround for those repos: wrap each hook command as `bash -c 'd=${CLAUDE_PROJECT_DIR:-}; …resolved from stdin .cwd…'`, or set `disableAllHooks`/strip the hooks block — the kit only writes its hooks to user-level `~/.copilot/hooks/`, so it never hits this path itself.
 - Matchers use Claude semantics: `Bash`, and `Write|Edit|MultiEdit` as a pipe-separated list (this file uses **PascalCase** event names, which Copilot CLI accepts natively with snake_case payload fields).
 
 ## Notes
