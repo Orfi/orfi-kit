@@ -1,0 +1,37 @@
+{
+  "description": "orfi-kit enforcement hooks (OpenAI Codex). Five of the seven shared scripts are wired: PreToolUse/Bash -> orfi-kit-enforce-sync.sh (deny), PostToolUse -> both format verifiers (advisory). The two Stop contracts (enforce-brevity, verify-skill-contract) are deliberately NOT wired: Codex's transcript format is not a stable interface for hooks, and wiring them would produce guardrails that always pass. The two PreToolUse convention loaders are also not wired — plain stdout is ignored by Codex; the conventions arrive declaratively via AGENTS.md instead. Honest gaps, never faked. All scripts live in ~/.claude/hooks (shared single source for all four runtimes) and must run from Git Bash on Windows.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\"",
+            "timeout": 10,
+            "statusMessage": "orfi-kit: checking sync guard"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\"",
+            "timeout": 120,
+            "statusMessage": "orfi-kit: verifying C# format"
+          },
+          {
+            "type": "command",
+            "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\"",
+            "timeout": 120,
+            "statusMessage": "orfi-kit: verifying C/C++ format"
+          }
+        ]
+      }
+    ]
+  }
+}

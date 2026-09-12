@@ -3,11 +3,12 @@
 # Scope   : Global (~/.claude/hooks/) — applies to all projects
 # Trigger : PreToolUse on Bash (filtered to git push on epic-derived working
 #           branches — any prefix except master/epic/*)
-# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. Claude and
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot|codex. Claude and
 #           opencode share the exit-code contract below — non-zero blocks.
-#           Copilot PreToolUse takes a deny decision JSON on stdout instead of an
-#           exit code, so this hook emits that (see the block section).
-# Exit non-zero = BLOCK the push (Claude / opencode); deny JSON = BLOCK (Copilot)
+#           Copilot and Codex PreToolUse take a deny decision JSON on stdout
+#           instead of an exit code, so this hook emits that (see the block
+#           section). Codex nests it under hookSpecificOutput.
+# Exit non-zero = BLOCK the push (Claude / opencode); deny JSON = BLOCK (Copilot / Codex)
 #
 # Sync order (Rule R7 extension for epic branch hierarchies):
 #   1. Rebase epic/* on origin/master
@@ -31,7 +32,9 @@ PAYLOAD="$(cat 2>/dev/null || true)"
 HOOK_PLATFORM="${ORFI_HOOK_PLATFORM:-claude}"
 
 # Copilot's PreToolUse payload carries the working directory at .cwd. Claude sets
-# CLAUDE_PROJECT_DIR; opencode inherits $PWD. Prefer the payload's own answer.
+# CLAUDE_PROJECT_DIR; opencode inherits $PWD; Codex runs hooks with the session's
+# cwd, so the $PWD fallback is correct there — no payload extraction needed for
+# either. Prefer the payload's own answer where one exists.
 PAYLOAD_CWD=""
 if [ "$HOOK_PLATFORM" = "copilot" ]; then
   if command -v jq >/dev/null 2>&1; then
@@ -156,19 +159,35 @@ Run /orfi-kit-sync-branch to fix this:
 
 Sync hierarchy: origin/master → $EPIC_BRANCH → $CURRENT_BRANCH"
 
-  if [ "$HOOK_PLATFORM" = "copilot" ]; then
-    # Copilot PreToolUse doesn't read an exit code for the decision; it reads a
-    # deny decision JSON on stdout. Deliver the same reasoning on that channel.
-    if command -v jq >/dev/null 2>&1; then
-      printf '%s' "$REASON" | jq -Rs '{permissionDecision:"deny",permissionDecisionReason:.}'
-    else
-      ESCAPED="$(printf '%s' "$REASON" \
-        | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
-        | awk '{ printf "%s\\n", $0 }')"
-      printf '{"permissionDecision":"deny","permissionDecisionReason":"%s"}\n' "$ESCAPED"
+if [ "$HOOK_PLATFORM" = "copilot" ]; then
+      # Copilot PreToolUse doesn't read an exit code for the decision; it reads a
+      # deny decision JSON on stdout. Deliver the same reasoning on that channel.
+      if command -v jq >/dev/null 2>&1; then
+        printf '%s' "$REASON" | jq -Rs '{permissionDecision:"deny",permissionDecisionReason:.}'
+      else
+        ESCAPED="$(printf '%s' "$REASON" \
+          | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+          | awk '{ printf "%s\\n", $0 }')"
+        printf '{"permissionDecision":"deny","permissionDecisionReason":"%s"}\n' "$ESCAPED"
+      fi
+      exit 0
     fi
-    exit 0
-  fi
+
+    if [ "$HOOK_PLATFORM" = "codex" ]; then
+      # Codex PreToolUse also needs the decision on stdout, nested under
+      # hookSpecificOutput with the event name (exit 2 + stderr works too, but the
+      # JSON channel carries the same reasoning on the defined contract).
+      # Byte-for-byte the shape the Codex hooks doc defines for a deny.
+      if command -v jq >/dev/null 2>&1; then
+        printf '%s' "$REASON" | jq -Rs '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:.}}'
+      else
+        ESCAPED="$(printf '%s' "$REASON" \
+          | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+          | awk '{ printf "%s\\n", $0 }')"
+        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$ESCAPED"
+      fi
+      exit 0
+    fi
 
   printf 'BLOCKED: %s\n' "$REASON"
   exit 1

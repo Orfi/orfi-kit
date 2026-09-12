@@ -2,13 +2,14 @@
 #
 # orfi-kit installer.
 #
-# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, and a
-# Copilot extension. The SAME seven bash hooks power all three runtimes: Claude Code
-# via ~/.claude/settings.json, GitHub Copilot CLI via a hooks registration file
-# (~/.copilot/hooks/orfi-kit.json), and OpenCode via a plugin that shells to the
-# same scripts. This script is install-time plumbing only: it copies (or symlinks)
-# skills, commands, the hooks, the plugin, and the extension into the right
-# directories for Claude Code, OpenCode, and/or GitHub Copilot CLI.
+# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, a Copilot
+# extension, and a Codex hooks.json + AGENTS.md. The SAME seven bash hooks power all
+# four runtimes: Claude Code via ~/.claude/settings.json, GitHub Copilot CLI via a
+# hooks registration file (~/.copilot/hooks/orfi-kit.json), OpenAI Codex CLI via
+# ~/.codex/hooks.json, and OpenCode via a plugin that shells to the same scripts.
+# This script is install-time plumbing only: it copies (or symlinks) skills, commands,
+# the hooks, the plugin, the registrations, and the extension into the right
+# directories for Claude Code, OpenCode, GitHub Copilot CLI, and/or OpenAI Codex CLI.
 #
 # Usage:
 #   ./install.sh                 interactive: asks which runtime(s) to install for
@@ -20,6 +21,8 @@
 # command files (claude/commands). Copilot uses its OWN source (copilot/skills,
 # 21 dirs) and its own home (~/.copilot/skills) — no command file (in Copilot a
 # skill IS its slash command).
+# Codex also uses its OWN source (codex/skills, the 21 Copilot dirs adapted again:
+# name + description frontmatter only) and its own home (~/.agents/skills).
 #
 # Conflict rule (OpenCode reads BOTH ~/.claude/skills and ~/.config/opencode/skills):
 # those skills get exactly ONE home per machine so the two never drift —
@@ -40,11 +43,14 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$REPO_DIR/claude/skills"            # Claude Code + OpenCode share this source
 COPILOT_SKILLS_SRC="$REPO_DIR/copilot/skills"   # Copilot has its own copy
+CODEX_SKILLS_SRC="$REPO_DIR/codex/skills"       # Codex has its own copy
 CMDS_SRC="$REPO_DIR/claude/commands"
 HOOK_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-sync.sh"
 BREVITY_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-brevity.sh"
 EXT_SRC="$REPO_DIR/copilot/extensions/orfi-kit-guardrails"
 COPILOT_HOOKS_SRC="$REPO_DIR/copilot/hooks"          # Copilot CLI hooks registration (JSON)
+CODEX_HOOKS_JSON_SRC="$REPO_DIR/codex/hooks.json"    # Codex native hooks registration (JSON)
+CODEX_AGENTS_SRC="$REPO_DIR/codex/AGENTS.md"         # Codex global rules (markdown)
 OPENCODE_PLUGINS_SRC="$REPO_DIR/opencode/plugins"    # OpenCode hook plugin (TypeScript)
 SCRIPTS_SRC="$REPO_DIR/scripts"
 
@@ -60,6 +66,9 @@ COPILOT_SCRIPTS="$HOME/.copilot/scripts"
 COPILOT_SKILLS="$HOME/.copilot/skills"          # Copilot's own home — no command file
 COPILOT_EXTS="$HOME/.copilot/extensions"        # verified from Copilot CLI bundle
 COPILOT_HOOKS="$HOME/.copilot/hooks"            # Copilot CLI hooks registration
+CODEX_SKILLS="$HOME/.agents/skills"             # Codex user-scope skill home
+CODEX_HOOKS_JSON="$HOME/.codex/hooks.json"      # Codex native hooks registration
+CODEX_AGENTS="$HOME/.codex/AGENTS.md"           # Codex global rules (read first)
 OPENCODE_PLUGINS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins"
 
 HOOK_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-sync.sh"
@@ -78,6 +87,12 @@ BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
 # forces a correction turn with the reason).
 CONTRACT_DEST="$CLAUDE_HOOKS/orfi-kit-verify-skill-contract.sh"
 CONTRACT_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\""
+
+# Codex hooks.json commands. Codex hook handlers accept no env field, so
+# ORFI_HOOK_PLATFORM=codex rides inline in the command string (the shell expands it).
+CODEX_ENFORCE_CMD="ORFI_HOOK_PLATFORM=codex bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
+CODEX_CSHARP_CMD="ORFI_HOOK_PLATFORM=codex bash \"\$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\""
+CODEX_CPP_CMD="ORFI_HOOK_PLATFORM=codex bash \"\$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\""
 
 # Convention hooks: two PreToolUse loaders that surface the repo's own rules
 # BEFORE a file is written, and two PostToolUse verifiers that check the file
@@ -117,6 +132,18 @@ CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-
 
 # The 21 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
+  orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-cpp-code-review
+  orfi-kit-csharp-code-review
+  orfi-kit-enforce-guardrails
+  orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-init orfi-kit-load-state
+  orfi-kit-persist-state orfi-kit-run-codegraph-phase
+  orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
+  orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-standup
+  orfi-kit-sync-branch orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
+)
+
+# The 21 Codex skill dirs (same parity set as Copilot, adapted for Codex).
+CODEX_SKILL_NAMES=(
   orfi-kit-cleanup-state orfi-kit-code-review orfi-kit-commit orfi-kit-cpp-code-review
   orfi-kit-csharp-code-review
   orfi-kit-enforce-guardrails
@@ -242,6 +269,106 @@ remove_copilot_skills() {
 }
 
 have_claude_skills_in() { [ -e "$1/orfi-kit-guardrails/SKILL.md" ] || [ -L "$1/orfi-kit-guardrails" ]; }
+
+# --- Codex skills -------------------------------------------------------------
+
+install_codex_skills() {
+  for s in "${CODEX_SKILL_NAMES[@]}"; do place "$CODEX_SKILLS_SRC/$s" "$CODEX_SKILLS/$s"; done
+}
+
+remove_codex_skills() {
+  for s in "${CODEX_SKILL_NAMES[@]}"; do
+    if [ -e "$CODEX_SKILLS/$s" ] || [ -L "$CODEX_SKILLS/$s" ]; then
+      rm -rf "$CODEX_SKILLS/$s"; say "  removed $CODEX_SKILLS/$s"
+    fi
+  done
+}
+
+# --- Codex hooks.json + AGENTS.md ---------------------------------------------
+# Codex reads ONE hooks.json (~/.codex/hooks.json) and one AGENTS.md
+# (~/.codex/AGENTS.md) at global scope. Both are SHARED user files, not orfi-kit
+# files, so install MERGES into them (never overwrites) and uninstall removes only
+# the orfi-kit handlers / block. jq required for the merge; falls back to manual
+# instructions. Git Bash is required on Windows (the commands run through a shell).
+
+install_codex_hooks() {
+  mkdir -p "$HOME/.codex"
+  if [ -f "$CODEX_HOOKS_JSON" ]; then
+    if ! command -v jq >/dev/null 2>&1; then
+      say "  jq not found — cannot merge into $CODEX_HOOKS_JSON. Add these handlers"
+      say "  manually (see codex/hooks.json in the repo): PreToolUse/^Bash$ ->"
+      say "  orfi-kit-enforce-sync.sh; PostToolUse/Write|Edit|apply_patch ->"
+      say "  orfi-kit-verify-csharp-format.sh + orfi-kit-verify-cpp-format.sh, each"
+      say "  command prefixed ORFI_HOOK_PLATFORM=codex."
+      return 0
+    fi
+    jq empty "$CODEX_HOOKS_JSON" >/dev/null 2>&1 || {
+      say "  $CODEX_HOOKS_JSON is not valid JSON — not touching it. Add the handlers"
+      say "  manually (see codex/hooks.json in the repo)."
+      return 0
+    }
+    local src; src="$(cat "$CODEX_HOOKS_JSON_SRC")"
+    local tmp; tmp="$(mktemp)"
+    jq --argjson ins "$src" '
+      def addCommands($existing; $new):
+        $new | map(
+          { matcher,
+            hooks: [ .hooks[] | select(.command as $c | any($existing[]?.hooks[]?.command; . == $c) | not) ] }
+          | select(.hooks | length > 0)
+        );
+      .hooks //= {} |
+      .hooks.PreToolUse  //= [] |
+      .hooks.PostToolUse //= [] |
+      .hooks.PreToolUse  = .hooks.PreToolUse  + addCommands(.hooks.PreToolUse;  $ins.hooks.PreToolUse) |
+      .hooks.PostToolUse = .hooks.PostToolUse + addCommands(.hooks.PostToolUse; $ins.hooks.PostToolUse) |
+      if has("description") then . else .description = $ins.description end
+    ' "$CODEX_HOOKS_JSON" > "$tmp" 2>/dev/null && mv "$tmp" "$CODEX_HOOKS_JSON"
+    say "  merged orfi-kit handlers into $CODEX_HOOKS_JSON"
+  else
+    place "$CODEX_HOOKS_JSON_SRC" "$CODEX_HOOKS_JSON"
+  fi
+}
+
+remove_codex_hooks() {
+  [ -f "$CODEX_HOOKS_JSON" ] || return 0
+  command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit handlers from $CODEX_HOOKS_JSON manually."; return 0; }
+  jq empty "$CODEX_HOOKS_JSON" >/dev/null 2>&1 || { say "  $CODEX_HOOKS_JSON not valid JSON — leaving it untouched."; return 0; }
+  local tmp; tmp="$(mktemp)"
+  jq '
+    def isOrfi:
+      any(.hooks[]?.command; contains("orfi-kit"));
+    .hooks.PreToolUse  = [ (.hooks.PreToolUse  // [])[] | select(isOrfi | not) ] |
+    .hooks.PostToolUse = [ (.hooks.PostToolUse // [])[] | select(isOrfi | not) ]
+  ' "$CODEX_HOOKS_JSON" > "$tmp" 2>/dev/null && mv "$tmp" "$CODEX_HOOKS_JSON"
+  say "  removed orfi-kit handlers from $CODEX_HOOKS_JSON"
+}
+
+install_codex_agents() {
+  mkdir -p "$HOME/.codex"
+  if [ -f "$CODEX_AGENTS" ] && grep -q '^# orfi-kit' "$CODEX_AGENTS"; then
+    say "  $CODEX_AGENTS already holds an orfi-kit block — leaving as-is."
+    return 0
+  fi
+  if [ -f "$CODEX_AGENTS" ]; then
+    cp "$CODEX_AGENTS" "$CODEX_AGENTS.bak"
+    say "  backed up $CODEX_AGENTS -> $CODEX_AGENTS.bak"
+    printf '\n\n' >> "$CODEX_AGENTS"
+    cat "$CODEX_AGENTS_SRC" >> "$CODEX_AGENTS"
+    say "  appended orfi-kit block to $CODEX_AGENTS"
+  else
+    place "$CODEX_AGENTS_SRC" "$CODEX_AGENTS"
+  fi
+}
+
+remove_codex_agents() {
+  if [ -f "$CODEX_AGENTS.bak" ]; then
+    mv "$CODEX_AGENTS.bak" "$CODEX_AGENTS"
+    say "  restored $CODEX_AGENTS from its pre-orfi-kit backup"
+  elif [ -f "$CODEX_AGENTS" ] && grep -q '^# orfi-kit' "$CODEX_AGENTS"; then
+    rm -f "$CODEX_AGENTS"
+    say "  removed $CODEX_AGENTS (no pre-existing content to preserve)"
+  fi
+}
 
 # --- NEW (beyond trackbed): settings.json hook wiring ------------------------
 # Merge a PreToolUse/Bash entry into ~/.claude/settings.json idempotently.
@@ -649,14 +776,15 @@ done
 
 # --- runtime selection -------------------------------------------------------
 
-WANT_CC=0; WANT_OC=0; WANT_CP=0
+WANT_CC=0; WANT_OC=0; WANT_CP=0; WANT_CX=0
 
 say "orfi-kit installer"
 say "Install for which runtime(s)?"
 say "  1) Claude Code"
 say "  2) OpenCode"
 say "  3) GitHub Copilot CLI"
-say "Select one or more (e.g. '1', '3', or '1 2 3' / '1,2' for several)."
+say "  4) OpenAI Codex CLI"
+say "Select one or more (e.g. '1', '3', or '1 2 3 4' / '1,2' for several)."
 printf 'Choice: '
 read -r choice
 
@@ -665,11 +793,12 @@ for n in ${choice//,/ }; do
     1) WANT_CC=1 ;;
     2) WANT_OC=1 ;;
     3) WANT_CP=1 ;;
-    *) err "invalid choice: '$n' (pick 1, 2 and/or 3)" ;;
+    4) WANT_CX=1 ;;
+    *) err "invalid choice: '$n' (pick 1, 2, 3 and/or 4)" ;;
   esac
 done
 
-[ "$WANT_CC" -eq 1 ] || [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ] || err "no runtime selected"
+[ "$WANT_CC" -eq 1 ] || [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ] || [ "$WANT_CX" -eq 1 ] || err "no runtime selected"
 
 # --- uninstall ---------------------------------------------------------------
 
@@ -697,9 +826,14 @@ if [ "$MODE" = "uninstall" ]; then
     remove_copilot_hooks
     remove_scripts_from "$COPILOT_SCRIPTS"
   fi
+  if [ "$WANT_CX" -eq 1 ]; then
+    remove_codex_skills
+    remove_codex_hooks
+    remove_codex_agents
+  fi
   # Shared scripts in ~/.claude/hooks were placed here only when Claude Code was
   # not part of the install; Claude's own uninstall already removes them above.
-  if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ]; }; then
+  if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ] || [ "$WANT_CX" -eq 1 ]; }; then
     remove_shared_hooks
   fi
   say "Done."
@@ -760,13 +894,13 @@ if [ "$WANT_CC" -eq 1 ]; then
   wire_contract_hook
 fi
 
-# The seven scripts must be under ~/.claude/hooks for the OpenCode plugin and the
-# Copilot hooks JSON. Claude Code placed them above; any other runtime that was
-# selected ensures they exist.
-if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ]; }; then
+# The seven scripts must be under ~/.claude/hooks for the OpenCode plugin, the
+# Copilot hooks JSON, and the Codex hooks JSON. Claude Code placed them above; any
+# other runtime that was selected ensures they exist.
+if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ] || [ "$WANT_CX" -eq 1 ]; }; then
   say ""
   say "Installing shared enforcement hooks to ~/.claude/hooks (used by the Copilot"
-  say "hooks registration and the OpenCode plugin):"
+  say "hooks registration, the Codex hooks.json, and the OpenCode plugin):"
   install_shared_hooks
 fi
 
@@ -788,5 +922,16 @@ if [ "$WANT_CP" -eq 1 ]; then
   install_copilot_hooks
 fi
 
+if [ "$WANT_CX" -eq 1 ]; then
+  say ""
+  say "OpenAI Codex CLI — skills go to ~/.agents/skills (Codex user-scope skill home)."
+  install_codex_skills
+  say "Installing Codex global rules to ~/.codex/AGENTS.md:"
+  install_codex_agents
+  say "Installing Codex hooks registration to ~/.codex/hooks.json:"
+  install_codex_hooks
+fi
+
 say ""
 say "Done. Invoke with /orfi-kit-commit or /orfi-kit-code-review"
+say "      (Codex: bare names without the slash — orfi-kit-commit, orfi-kit-code-review)"

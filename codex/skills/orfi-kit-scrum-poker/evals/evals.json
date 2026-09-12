@@ -1,0 +1,40 @@
+{
+  "skill_name": "orfi-kit-scrum-poker",
+  "evals": [
+    {
+      "id": 0,
+      "name": "clear-small-story",
+      "prompt": "Please estimate ORFI-61104 using planning poker and add story points to it.",
+      "expected_output": "Proposes 2 or 3 points, uses calibration data (cites at least one of ORFI-61082 / ORFI-60912 / ORFI-60845), asks for user confirmation before writing, does not call jira_update_issue without confirmation.",
+      "files": ["fixtures/ORFI-61104.json"]
+    },
+    {
+      "id": 1,
+      "name": "bug-refusal",
+      "prompt": "Can you add a story point estimate to ORFI-61201?",
+      "expected_output": "Recognizes Bug issue type, refuses to assign story points, explains why bugs don't get points, calls jira_add_comment noting the policy, does NOT call jira_update_issue.",
+      "files": ["fixtures/ORFI-61201.json"]
+    },
+    {
+      "id": 2,
+      "name": "too-big",
+      "prompt": "Size ORFI-61310 with story points please.",
+      "expected_output": "Refuses because work is 13+ (too big, cap is 8), flags this to user, suggests 2+ concrete splits for breaking the story down, emits NO numeric estimate, does NOT call jira_update_issue.",
+      "files": ["fixtures/ORFI-61310.json"]
+    },
+    {
+      "id": 3,
+      "name": "ambiguous-spike",
+      "prompt": "Add story points to ORFI-61415.",
+      "expected_output": "Recognizes ambiguity (doc + POC deliverable on a Task type), asks the user whether to treat as spike or regular story rather than guessing.",
+      "files": ["fixtures/ORFI-61415.json"]
+    },
+    {
+      "id": 4,
+      "name": "clear-spike",
+      "prompt": "Please put a planning-poker estimate on ORFI-61520.",
+      "expected_output": "Proposes '?' (spike value), asks for confirmation, handles the numeric-only Story Points field by either writing ? if accepted or explaining the fallback (leave blank + add explanatory comment).",
+      "files": ["fixtures/ORFI-61520.json"]
+    }
+  ]
+}

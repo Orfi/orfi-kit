@@ -3,11 +3,12 @@
 # orfi-kit installer (PowerShell) — the cross-platform twin of install.sh.
 # Runs on Windows PowerShell 5+, and pwsh on Windows / macOS / Linux.
 #
-# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, and a
-# Copilot extension. The SAME seven bash hooks power all three runtimes: Claude Code
-# via ~/.claude/settings.json, GitHub Copilot CLI via a hooks registration file
-# (~/.copilot/hooks/orfi-kit.json), and OpenCode via a plugin that shells to the
-# same scripts. This script is install-time plumbing only.
+# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, a Copilot
+# extension, and a Codex hooks.json + AGENTS.md. The SAME seven bash hooks power all
+# four runtimes: Claude Code via ~/.claude/settings.json, GitHub Copilot CLI via a
+# hooks registration file (~/.copilot/hooks/orfi-kit.json), OpenAI Codex CLI via
+# ~/.codex/hooks.json, and OpenCode via a plugin that shells to the same scripts.
+# This script is install-time plumbing only.
 #
 # Usage:
 #   ./install.ps1                 interactive: asks which runtime(s) to install for
@@ -17,10 +18,11 @@
 #
 # Claude Code + OpenCode share one skill source (claude/skills) and the 10
 # command files. Copilot uses its own source (copilot/skills) and its own home
-# (~/.copilot/skills). Hooks (bash scripts) get ONE shared home, ~/.claude/hooks,
-# that serves Claude Code's settings.json, the Copilot hooks JSON, and the
-# OpenCode plugin. On Windows the OpenCode plugin and Copilot hooks invoke the
-# scripts through Git Bash, so a Git Bash installation is required for them.
+# (~/.copilot/skills). Codex uses its own source (codex/skills) and its own home
+# (~/.agents/skills). Hooks (bash scripts) get ONE shared home, ~/.claude/hooks,
+# that serves Claude Code's settings.json, the Copilot + Codex hooks JSON, and the
+# OpenCode plugin. On Windows those hooks invoke the scripts through Git Bash, so
+# a Git Bash installation is required.
 
 [CmdletBinding()]
 param(
@@ -36,12 +38,15 @@ $ErrorActionPreference = 'Stop'
 $RepoDir          = Split-Path -Parent $MyInvocation.MyCommand.Path
 $SkillsSrc        = Join-Path $RepoDir 'claude/skills'
 $CopilotSkillsSrc = Join-Path $RepoDir 'copilot/skills'
+$CodexSkillsSrc   = Join-Path $RepoDir 'codex/skills'
 $CmdsSrc          = Join-Path $RepoDir 'claude/commands'
 $HookSrc          = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-sync.sh'
 $BrevitySrc       = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-brevity.sh'
 $ContractSrc      = Join-Path $RepoDir 'claude/hooks/orfi-kit-verify-skill-contract.sh'
 $ExtSrc           = Join-Path $RepoDir 'copilot/extensions/orfi-kit-guardrails'
 $CopilotHooksSrc  = Join-Path $RepoDir 'copilot/hooks'          # Copilot CLI hooks registration (JSON)
+$CodexHooksJsonSrc = Join-Path $RepoDir 'codex/hooks.json'      # Codex native hooks registration (JSON)
+$CodexAgentsSrc   = Join-Path $RepoDir 'codex/AGENTS.md'        # Codex global rules (markdown)
 $OpencodePluginsSrc = Join-Path $RepoDir 'opencode/plugins'     # OpenCode hook plugin (TypeScript)
 $ScriptsSrc       = Join-Path $RepoDir 'scripts'
 
@@ -60,6 +65,9 @@ $ClaudeScripts   = Join-Path $Home_ '.claude/scripts'
 $OpencodeScripts = Join-Path $XdgConfig 'opencode/scripts'
 $CopilotScripts  = Join-Path $Home_ '.copilot/scripts'
 $CopilotHooks    = Join-Path $Home_ '.copilot/hooks'          # Copilot CLI hooks registration
+$CodexSkills     = Join-Path $Home_ '.agents/skills'          # Codex user-scope skill home
+$CodexHooksJson  = Join-Path $Home_ '.codex/hooks.json'       # Codex native hooks registration
+$CodexAgents     = Join-Path $Home_ '.codex/AGENTS.md'        # Codex global rules (read first)
 $OpencodePlugins = Join-Path $XdgConfig 'opencode/plugins'    # OpenCode plugin transport
 
 # The doc-presence checkers + their git-hook wiring (scripts/). Both language
@@ -117,6 +125,17 @@ $ConvHookNames = $ConvPreHooks + $ConvPostHooks
 $ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs','orfi-kit-csharp-code-review','orfi-kit-cpp-code-review')
 
 $CopilotSkillNames = @(
+  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
+  'orfi-kit-csharp-code-review','orfi-kit-enforce-guardrails',
+  'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-init','orfi-kit-load-state',
+  'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
+  'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
+  'orfi-kit-scrum-poker','orfi-kit-set-helper-files-root','orfi-kit-standup',
+  'orfi-kit-sync-branch','orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
+)
+
+# The 21 Codex skill dirs (same parity set as Copilot, adapted for Codex).
+$CodexSkillNames = @(
   'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
   'orfi-kit-csharp-code-review','orfi-kit-enforce-guardrails',
   'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-init','orfi-kit-load-state',
@@ -218,6 +237,15 @@ function Install-CopilotSkills {
 function Remove-CopilotSkills {
     foreach ($s in $CopilotSkillNames) {
         $p = Join-Path $CopilotSkills $s
+        if (Test-Path $p) { Remove-Item -Recurse -Force $p; Say "  removed $p" }
+    }
+}
+function Install-CodexSkills {
+    foreach ($s in $CodexSkillNames) { Place (Join-Path $CodexSkillsSrc $s) (Join-Path $CodexSkills $s) }
+}
+function Remove-CodexSkills {
+    foreach ($s in $CodexSkillNames) {
+        $p = Join-Path $CodexSkills $s
         if (Test-Path $p) { Remove-Item -Recurse -Force $p; Say "  removed $p" }
     }
 }
@@ -494,6 +522,97 @@ function Unwire-ConventionHooks {
     Say "  removed orfi-kit convention hook entries from settings.json"
 }
 
+# --- Codex: skills to ~/.agents/skills, native hooks + global rules -------------
+# ~/.codex/hooks.json and ~/.codex/AGENTS.md are THE user's own Codex files, so we
+# MERGE (never overwrite): handlers are added when their command is not already
+# registered, and the orfi-kit block is appended to AGENTS.md under a marker with a
+# .bak backup. Invalid JSON is left untouched, with manual instructions instead.
+
+function Install-CodexHooks {
+    $dir = Split-Path -Parent $CodexHooksJson
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (Test-Path $CodexHooksJson) {
+        try {
+            $existing = Get-Content -Raw $CodexHooksJson | ConvertFrom-Json
+            $ours     = Get-Content -Raw $CodexHooksJsonSrc | ConvertFrom-Json
+        } catch {
+            Say "  $CodexHooksJson is not valid JSON — not touching it."
+            Say "  Add the handlers manually from codex/hooks.json in the orfi-kit repo."
+            return
+        }
+        if (-not $existing.hooks) { $existing | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) -Force }
+        foreach ($ev in @('PreToolUse','PostToolUse')) {
+            if (-not $existing.hooks.$ev) { $existing.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue @() -Force }
+            foreach ($h in @($ours.hooks.$ev)) {
+                # Merge per-command, never per-handler: a source handler is reduced
+                # to the commands the user's file does not already register, then
+                # appended with its matcher. All present -> no-op (re-install is
+                # idempotent); some present -> only the missing ones are added.
+                $known = @($existing.hooks.$ev | ForEach-Object { $_.hooks | ForEach-Object { $_.command } })
+                $missing = @($h.hooks | Where-Object { $known -notcontains $_.command })
+                if ($missing.Count -gt 0) {
+                    $entry = [pscustomobject]@{ matcher = $h.matcher; hooks = $missing }
+                    $existing.hooks.$ev = @($existing.hooks.$ev) + $entry
+                }
+            }
+        }
+        if (-not $existing.PSObject.Properties.Name.Contains('description')) {
+            $existing | Add-Member -NotePropertyName description -NotePropertyValue $ours.description -Force
+        }
+        ($existing | ConvertTo-Json -Depth 100) | Set-Content -Path $CodexHooksJson
+        Say "  merged orfi-kit handlers into $CodexHooksJson"
+    } else {
+        Place $CodexHooksJsonSrc $CodexHooksJson
+    }
+}
+
+function Remove-CodexHooks {
+    if (-not (Test-Path $CodexHooksJson)) { return }
+    try { $json = Get-Content -Raw $CodexHooksJson | ConvertFrom-Json }
+    catch { Say "  $CodexHooksJson not valid JSON — leaving it untouched."; return }
+    if (-not $json.hooks) { return }
+    $kit = @('orfi-kit-enforce-sync.sh','orfi-kit-verify-csharp-format.sh','orfi-kit-verify-cpp-format.sh')
+    foreach ($ev in @('PreToolUse','PostToolUse')) {
+        if (-not $json.hooks.$ev) { continue }
+        $json.hooks.$ev = @($json.hooks.$ev | Where-Object {
+            $match = $false
+            foreach ($h in @($_.hooks)) {
+                foreach ($k in $kit) { if ($h.command -like "*$k*") { $match = $true } }
+            }
+            -not $match
+        })
+    }
+    ($json | ConvertTo-Json -Depth 100) | Set-Content -Path $CodexHooksJson
+    Say "  removed orfi-kit handlers from $CodexHooksJson"
+}
+
+function Install-CodexAgents {
+    $dir = Split-Path -Parent $CodexAgents
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (Test-Path $CodexAgents) {
+        if (Select-String -Path $CodexAgents -Pattern '^# orfi-kit' -Quiet) {
+            Say "  $CodexAgents already holds an orfi-kit block — leaving as-is (idempotent)"
+            return
+        }
+        Copy-Item $CodexAgents "$CodexAgents.bak" -Force
+        Say "  backed up $CodexAgents -> $CodexAgents.bak"
+        Add-Content -Path $CodexAgents -Value ("`n`n" + (Get-Content -Raw $CodexAgentsSrc))
+        Say "  appended orfi-kit block to $CodexAgents"
+    } else {
+        Place $CodexAgentsSrc $CodexAgents
+    }
+}
+
+function Remove-CodexAgents {
+    if (Test-Path "$CodexAgents.bak") {
+        Move-Item -Force "$CodexAgents.bak" $CodexAgents
+        Say "  restored $CodexAgents from its pre-orfi-kit backup"
+    } elseif ((Test-Path $CodexAgents) -and (Select-String -Path $CodexAgents -Pattern '^# orfi-kit' -Quiet)) {
+        Remove-Item -Force $CodexAgents
+        Say "  removed $CodexAgents (no pre-existing content to preserve)"
+    }
+}
+
 # --- NEW: Copilot extension (verified path ~/.copilot/extensions) ------------
 
 function Install-CopilotExtension { Place $ExtSrc (Join-Path $CopilotExts 'orfi-kit-guardrails') }
@@ -542,13 +661,14 @@ if (-not (Test-Path $SkillsSrc)) { Die "skills not found at $SkillsSrc - run thi
 
 # --- runtime selection -------------------------------------------------------
 
-$WantCC = $false; $WantOC = $false; $WantCP = $false
+$WantCC = $false; $WantOC = $false; $WantCP = $false; $WantCX = $false
 
 Say 'orfi-kit installer'
 Say 'Install for which runtime(s)?'
 Say '  1) Claude Code'
 Say '  2) OpenCode'
 Say '  3) GitHub Copilot CLI'
+Say '  4) OpenAI Codex CLI'
 Say "Select one or more (e.g. '1', '3', or '1 2 3' / '1,2' for several)."
 $choice = Read-Host 'Choice'
 
@@ -557,10 +677,11 @@ foreach ($n in ($choice -split '[,\s]+' | Where-Object { $_ -ne '' })) {
         '1' { $WantCC = $true }
         '2' { $WantOC = $true }
         '3' { $WantCP = $true }
-        default { Die "invalid choice: '$n' (pick 1, 2 and/or 3)" }
+        '4' { $WantCX = $true }
+        default { Die "invalid choice: '$n' (pick 1, 2, 3 and/or 4)" }
     }
 }
-if (-not ($WantCC -or $WantOC -or $WantCP)) { Die 'no runtime selected' }
+if (-not ($WantCC -or $WantOC -or $WantCP -or $WantCX)) { Die 'no runtime selected' }
 
 # --- uninstall ---------------------------------------------------------------
 
@@ -570,9 +691,10 @@ if ($Uninstall) {
     if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Remove-ScriptsFrom $ClaudeScripts; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks; Unwire-ContractHook }
     if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds; Remove-ScriptsFrom $OpencodeScripts; Remove-OpencodePlugin }
     if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension; Remove-CopilotHooks; Remove-ScriptsFrom $CopilotScripts }
+    if ($WantCX) { Remove-CodexSkills; Remove-CodexHooks; Remove-CodexAgents }
     # Shared scripts in ~/.claude/hooks were placed here only when Claude Code was
     # not part of the install; Claude's own uninstall already removes them above.
-    if ((-not $WantCC) -and ($WantOC -or $WantCP)) { Remove-SharedHooks }
+    if ((-not $WantCC) -and ($WantOC -or $WantCP -or $WantCX)) { Remove-SharedHooks }
     Say 'Done.'
     exit 0
 }
@@ -632,12 +754,12 @@ if ($WantCC) {
 }
 
 # The seven scripts must be under ~/.claude/hooks for the OpenCode plugin and the
-# Copilot hooks JSON. Claude Code placed them above; any other runtime that was
-# selected ensures they exist.
-if ((-not $WantCC) -and ($WantOC -or $WantCP)) {
+# Copilot + Codex hooks registrations. Claude Code placed them above; any other
+# runtime that was selected ensures they exist.
+if ((-not $WantCC) -and ($WantOC -or $WantCP -or $WantCX)) {
     Say ''
     Say 'Installing shared enforcement hooks to ~/.claude/hooks (used by the Copilot'
-    Say 'hooks registration and the OpenCode plugin):'
+    Say 'hooks registration, the Codex hooks.json, and the OpenCode plugin):'
     Install-SharedHooks
 }
 
@@ -647,7 +769,7 @@ if ($WantOC) {
     Install-OpencodePlugin
 }
 
-# --- Copilot CLI + extension + hooks -----------------------------------------
+# --- GitHub Copilot CLI + extension + hooks -----------------------------------
 
 if ($WantCP) {
     Say ''
@@ -659,5 +781,23 @@ if ($WantCP) {
     Install-CopilotHooks
 }
 
+# --- OpenAI Codex CLI: skills + native hooks + global rules --------------------
+
+if ($WantCX) {
+    Say ''
+    Say 'OpenAI Codex CLI - skills go to ~/.agents/skills (Codex native user scope).'
+    Say 'Invoke them by bare name (orfi-kit-commit, orfi-kit-code-review, ...) - Codex has'
+    Say 'no slash-command skill references. C#/C++ reviewers run with their stored approval:'
+    Install-CodexSkills
+    Say ''
+    Say 'Installing native hooks registration to ~/.codex/hooks.json (5 of 7 hooks; the Stop'
+    Say 'contracts - brevity, skill-contract - are deliberately NOT wired: Codex has no stable'
+    Say 'Stop hook contract, so they run as an explicit checklist in AGENTS.md instead):'
+    Install-CodexHooks
+    Say ''
+    Say 'Installing Codex global rules to ~/.codex/AGENTS.md (guardrails + conventions):'
+    Install-CodexAgents
+}
+
 Say ''
-Say 'Done. Invoke with /orfi-kit-commit or /orfi-kit-code-review'
+Say 'Done. For Codex, invoke skills by bare name (orfi-kit-commit / orfi-kit-code-review).'

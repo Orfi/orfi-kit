@@ -4,12 +4,14 @@
 # Trigger : PostToolUse on Write|Edit|MultiEdit (filtered here to C/C++ extensions)
 # Exit 0 always = ADVISORY: reports violations, never blocks the edit
 #
-# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. The verification
-#           is identical everywhere; only the delivery channel differs (see the
-#           emit section at the bottom). Claude reads hookSpecificOutput.
-#           additionalContext; Copilot PostToolUse reads a top-level
-#           additionalContext (no block semantics there); opencode merges
-#           output.output into the tool result so the model still sees findings.
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot|codex. The
+#           verification is identical everywhere; only the delivery channel
+#           differs (see the emit section at the bottom). Claude reads
+#           hookSpecificOutput.additionalContext; Copilot PostToolUse reads a
+#           top-level additionalContext (no block semantics there); opencode
+#           merges output.output into the tool result so the model still sees
+#           findings; Codex reads hookSpecificOutput.additionalContext like
+#           Claude.
 #
 # Advisory, not blocking, deliberately: a PostToolUse hook fires per edit, so a
 # multi-file change is verified while it is still half-written, and any
@@ -165,6 +167,7 @@ printf '%s\n' "$MSG" >&2
 #   claude  -> hookSpecificOutput.additionalContext (model sees and must act)
 #   copilot -> top-level additionalContext
 #   opencode-> output.output, which the plugin merges into the tool result
+#   codex   -> hookSpecificOutput.additionalContext (same shape as claude)
 emit_json() {
   case "$HOOK_PLATFORM" in
     copilot)
@@ -179,6 +182,14 @@ emit_json() {
              | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
              | awk '{ printf "%s\\n", $0 }')"; \
              printf '{"output":{"output":"%s"}}\n' "$ESCAPED"; } ;;
+    codex)
+      printf '%s' "$MSG" | jq -Rs '{
+        hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: . }
+      }' 2>/dev/null \
+        || { ESCAPED="$(printf '%s' "$MSG" \
+             | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+             | awk '{ printf "%s\\n", $0 }')"; \
+             printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$ESCAPED"; } ;;
     *)
       printf '%s' "$MSG" | jq -Rs '{
         hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: . }
@@ -191,8 +202,9 @@ emit_json() {
 }
 emit_json
 
-# Opt-in blocking is Claude-only. Copilot PostToolUse has no block semantics and
-# opencode merges rather than gates, so those platforms are always advisory.
+# Opt-in blocking is Claude-only. Copilot PostToolUse has no block semantics,
+# opencode merges rather than gates, and Codex treats PostToolUse output as
+# feedback, so those platforms are always advisory.
 if [ "$HOOK_PLATFORM" = "claude" ] && [ "${ORFI_CPP_FORMAT_BLOCKING:-0}" = "1" ]; then
   echo "ORFI_CPP_FORMAT_BLOCKING=1 — treating this as a block." >&2
   exit 2

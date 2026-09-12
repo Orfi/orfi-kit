@@ -4,10 +4,13 @@
 # Trigger : Stop — fires when the assistant finishes a reply
 # Exit non-zero (2) = BLOCK: feed the gaps back and make the assistant run them
 #
-# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. Claude reads the
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot|codex. Claude reads the
 #           block from stderr + exit 2. Copilot Stop takes a block decision JSON
 #           on stdout (no exit-code contract there). opencode has no Stop event,
-#           so this hook is not wired on that platform and never fakes it.
+#           so this hook is not wired on that platform and never fakes it. Codex
+#           has a Stop event but its transcript format is not a stable interface
+#           for hooks, so it is also deliberately not wired on Codex and never
+#           fakes it.
 #
 # Rationale: the code-review skills mandate companion skills (/security-review,
 # /orfi-kit-xml-docs) and a tool lane (dotnet format/build/test). The prose is
@@ -55,8 +58,9 @@ set -uo pipefail
 # Where contracts live. A skill's contract sits beside its SKILL.md, so an
 # installed skill and its rules travel together and cannot drift apart. Search
 # every platform's skill root, not just Claude's: a Copilot session may run a
-# skill installed under ~/.copilot/skills, and the same contract must judge it.
-SKILL_DIRS="${ORFI_SKILL_DIRS:-$HOME/.claude/skills:$HOME/.copilot/skills:${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills}"
+# skill installed under ~/.copilot/skills, a Codex session one under
+# ~/.agents/skills, and the same contract must judge it.
+SKILL_DIRS="${ORFI_SKILL_DIRS:-$HOME/.claude/skills:$HOME/.copilot/skills:$HOME/.agents/skills:${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills}"
 
 # Platform contract. Same logic everywhere; only the output encoding differs.
 # Unset = Claude's historical behavior, byte-for-byte.

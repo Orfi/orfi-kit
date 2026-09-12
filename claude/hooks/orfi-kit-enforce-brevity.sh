@@ -4,10 +4,13 @@
 # Trigger : Stop — fires when the assistant finishes a reply
 # Exit non-zero (2) = BLOCK: feed the reply back with an instruction to shorten
 #
-# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. Claude reads the
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot|codex. Claude reads the
 #           block from stderr + exit 2. Copilot Stop takes a block decision JSON
 #           on stdout (no exit-code contract there). opencode has no Stop event,
-#           so this hook is not wired on that platform and never fakes it.
+#           so this hook is not wired on that platform and never fakes it. Codex
+#           has a Stop event but its transcript format is not a stable interface
+#           for hooks, so it is also deliberately not wired on Codex and never
+#           fakes it.
 #
 # Rationale: the assistant repeatedly shipped page-length replies for small tasks.
 # Advisory "be concise" instructions did not bind. This hook mechanically measures

@@ -2,11 +2,11 @@
 
 # orfi-kit
 
-A generic, reusable bundle of **Claude Code, OpenCode, and GitHub Copilot CLI** skills, commands, and
-hooks for AI-augmented development. It packages a team's day-to-day automation — git conventions, a
-push/brevity/contract enforcement layer, commits, code review, session state, test runners, Jira
-estimation, C# XML-doc and C++ Doxygen-doc rules, and branch sync — and installs them flat (every
-item is prefixed `orfi-kit-`).
+A generic, reusable bundle of **Claude Code, OpenCode, GitHub Copilot CLI, and OpenAI Codex CLI**
+skills, commands, and hooks for AI-augmented development. It packages a team's day-to-day automation —
+git conventions, a push/brevity/contract enforcement layer, commits, code review, session state, test
+runners, Jira estimation, C# XML-doc and C++ Doxygen-doc rules, and branch sync — and installs them
+flat (every item is prefixed `orfi-kit-`).
 
 > **Related kit:** `orfi-ae-kit` (the Architect/Executor pattern) is a **separate** repo that lists
 > orfi-kit as a prerequisite. This repo is only orfi-kit.
@@ -17,9 +17,10 @@ Every row below links to a full doc page under [`docs/skills/`](docs/skills/).
 
 ### Skills (always-on, auto-triggered, or invoked)
 
-Claude Code / OpenCode skills (Copilot ships these as slash commands). Most trigger on their own; the
-two code-review skills (`orfi-kit-csharp-code-review`, `orfi-kit-cpp-code-review`) are skill
-directories because each ships a companion `CONFIG.md`, but you invoke them like commands.
+Claude Code / OpenCode skills (Copilot ships these as slash commands; Codex invokes them by bare
+name). Most trigger on their own; the two code-review skills (`orfi-kit-csharp-code-review`,
+`orfi-kit-cpp-code-review`) are skill directories because each ships a companion `CONFIG.md`, but you
+invoke them like commands.
 
 | Capability | What it does | Trigger | Requires |
 | --- | --- | --- | --- |
@@ -57,11 +58,12 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 One set of **seven hook scripts** is the single source of logic; each runtime registers them through
 its own channel. Claude Code via `~/.claude/settings.json`, Copilot CLI via native hooks
 (`~/.copilot/hooks/orfi-kit.json` — [orfi-kit-copilot-hooks](docs/skills/orfi-kit-copilot-hooks.md)),
-and OpenCode via a plugin (`~/.config/opencode/plugins/orfi-kit-hooks.ts` —
-[orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md)). The scripts branch on
-`ORFI_HOOK_PLATFORM` to speak each runtime's output contract instead of each platform re-implementing
-the logic. Surface below means: **Claude** (settings.json hooks), **Copilot** (native hooks /
-extension), **OpenCode** (plugin).
+OpenCode via a plugin (`~/.config/opencode/plugins/orfi-kit-hooks.ts` —
+[orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md)), and Codex CLI via native hooks
+(`~/.codex/hooks.json` — [orfi-kit-codex-hooks](docs/skills/orfi-kit-codex-hooks.md)). The scripts
+branch on `ORFI_HOOK_PLATFORM` to speak each runtime's output contract instead of each platform
+re-implementing the logic. Surface below means: **Claude** (settings.json hooks), **Copilot** (native
+hooks / extension), **OpenCode** (plugin), **Codex** (native hooks / global rules).
 
 | Capability | What it does | Surface | Requires |
 | --- | --- | --- | --- |
@@ -75,11 +77,12 @@ extension), **OpenCode** (plugin).
 | [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, the C#/C++ coding conventions — scoped to the languages actually present in the workspace — and an `onUserPromptSubmitted` brevity nudge as fallback. Native Copilot hooks (above) do the blocking; the extension loads the context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
 | [orfi-kit-copilot-hooks](docs/skills/orfi-kit-copilot-hooks.md) | `copilot/hooks/orfi-kit.json` — registers the seven shared hook scripts as Copilot **native hooks** (`PreToolUse` sync, `PostToolUse` verifiers, `Stop` brevity + skill-contract) with `ORFI_HOOK_PLATFORM=copilot` payload contracts. Installs to `~/.copilot/hooks/`. | Copilot CLI native hooks | The seven scripts in `~/.claude/hooks/`; Git Bash on Windows |
 | [orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md) | `opencode/plugins/orfi-kit-hooks.ts` — runs the same scripts for OpenCode: sync gate (`tool.execute.before`), format verifiers (`tool.execute.after`), conventions at chat start (`chat.system.transform`). Installs to `~/.config/opencode/plugins/`. No Stop event → brevity + skill-contract are not ported (honest gap). | OpenCode plugin | The seven scripts; Git Bash on Windows |
+| [orfi-kit-codex-hooks](docs/skills/orfi-kit-codex-hooks.md) | `codex/hooks.json` + `codex/AGENTS.md` — registers **5 of 7** hook scripts as Codex **native hooks** (`PreToolUse` sync gate, `PostToolUse` format verifiers) with `ORFI_HOOK_PLATFORM=codex` payload contracts, and ships the guardrails + C#/C++ conventions as Codex **global rules** (read every session). Skills land in `~/.agents/skills`, invoked by bare name. Stop contracts (brevity, skill-contract) are **not wired** — Codex has no stable Stop surface, so they run as an explicit checklist instead (honest gap). Installs to `~/.codex/hooks.json` + `~/.codex/AGENTS.md` — **merged, never overwritten**. | Codex CLI native hooks | The seven scripts in `~/.claude/hooks/`; Git Bash on Windows; up-to-date Codex CLI |
 
 ## Install
 
 The repo ships two equivalent installers (a maintenance pair). Run either and pick which
-runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI — one or several).
+runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI, OpenAI Codex CLI — one or several).
 
 **bash:**
 
@@ -142,11 +145,25 @@ The plugin shells to the same scripts with `ORFI_HOOK_PLATFORM=opencode`:
 result, and `chat.system.transform` injects the conventions at chat start. OpenCode has **no Stop
 event**, so brevity and skill-contract are not ported there — an honest gap, not a fake gate.
 
+**Codex CLI.** The installer merges `codex/hooks.json` into `~/.codex/hooks.json` and appends
+`codex/AGENTS.md` to `~/.codex/AGENTS.md` (see [orfi-kit-codex-hooks](docs/skills/orfi-kit-codex-hooks.md)).
+Five events register: `PreToolUse`/`^Bash$` (sync gate, deny) and
+`PostToolUse`/`Write|Edit|apply_patch` (both format verifiers, advisory). Codex has **no Stop event**
+and no chat-start hook surface, so the brevity + skill-contract gates and the two convention loaders
+are **not wired** — instead `AGENTS.md` carries the guardrails and the C#/C++ conventions, enforced as
+an explicit checklist every session (honest gap, not a fake gate). Skills go to `~/.agents/skills`
+and are invoked by **bare name** (Codex has no slash-command skill references). Because
+`~/.codex/hooks.json` and `~/.codex/AGENTS.md` are the user's own files, the installer **merges**
+(never overwrites): handlers are added when not already registered, and the `AGENTS.md` block goes
+under a `# orfi-kit` marker with a `.bak` backup. Invalid JSON is left alone, with manual
+instructions.
+
 | | Sync gate | Load conventions | Verify a write | Brevity gate | Skill-contract gate |
 | --- | --- | --- | --- | --- | --- |
 | Claude Code | Yes — `PreToolUse/Bash` | Yes — 2 `PreToolUse` loaders | Yes — 2 `PostToolUse` | Yes — `Stop` | Yes — `Stop` |
 | Copilot CLI | Yes — native `PreToolUse` | Yes — extension at `onSessionStart` | Yes — 2 native `PostToolUse` | Yes — native `Stop` | Yes — native `Stop` |
 | OpenCode | Yes — plugin `tool.execute.before` | Yes — plugin at chat start (root probe) | Yes — plugin `tool.execute.after` (advisory) | **No — no Stop event** | **No — no Stop event** |
+| Codex CLI | Yes — native `PreToolUse` | Yes — global rules (`AGENTS.md`) | Yes — 2 native `PostToolUse` (advisory) | **No — checklist in AGENTS.md** | **No — checklist in AGENTS.md** |
 
 ### Doc-checker scripts (all runtimes)
 
@@ -238,8 +255,9 @@ they will never write it for you.
 Run the same installer with `--uninstall` (bash) or `-Uninstall` (PowerShell) and **select the same
 runtime(s) you installed for** — it only cleans what you select, so anything else is left behind.
 Skills, commands, all seven hook files + their `settings.json` entries, the Copilot hooks registration
-(`~/.copilot/hooks/orfi-kit.json`), the OpenCode plugin, the six `scripts/` files, and the Copilot
-extension are removed. The scripts directory is deleted only if uninstall emptied it, so a
+(`~/.copilot/hooks/orfi-kit.json`), the Codex hooks registration (`~/.codex/hooks.json`) + `AGENTS.md`
+block (`~/.codex/AGENTS.md`, restored from its `.bak` when one was written), the OpenCode plugin, the
+six `scripts/` files, and the Copilot extension are removed. The scripts directory is deleted only if uninstall emptied it, so a
 directory holding scripts of your own survives.
 
 Two things uninstall deliberately does **not** undo: `core.hooksPath` in any repo where you ran
