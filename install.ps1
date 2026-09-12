@@ -178,6 +178,14 @@ function Show-Usage {
     exit 0
 }
 
+function Normalize-Lf($file) {
+    if ($Link) { return }
+    # Installed .sh files must be LF: git core.autocrlf or a stale checkout can
+    # leave CRLF on disk, and bash errors on the trailing ^M.
+    $t = [System.IO.File]::ReadAllText($file) -replace "`r`n", "`n"
+    [System.IO.File]::WriteAllText($file, $t, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Place($src, $dest) {
     $parent = Split-Path -Parent $dest
     if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
@@ -218,6 +226,7 @@ function Install-ScriptsTo($targetDir) {
         if ($s -like '*.sh' -and ($IsLinux -or $IsMacOS)) {
             chmod +x (Join-Path $targetDir $s) 2>$null
         }
+        if ($s -like '*.sh') { Normalize-Lf (Join-Path $targetDir $s) }
     }
 }
 function Remove-ScriptsFrom($targetDir) {
@@ -630,6 +639,7 @@ function Remove-CopilotExtension {
 function Install-SharedHooks {
     foreach ($name in $AllHookNames) {
         Place (Join-Path $RepoDir "claude/hooks/$name") (Join-Path $ClaudeHooks $name)
+        Normalize-Lf (Join-Path $ClaudeHooks $name)
     }
 }
 
@@ -647,6 +657,14 @@ function Install-CopilotHooks {
     # $HOME=/home/<user> instead of the profile, so a $HOME-based command would
     # still fail closed. USERPROFILE (falling back to $Home_) is the real
     # profile; forward slashes resolve in both PowerShell and Git Bash.
+    #
+    # Runtime transport: Copilot runs the "powershell" field through Windows
+    # PowerShell, whose spawned bash is the WSL shim (C:\Windows\system32\bash.exe)
+    # that MANGLES inline double-quotes and '=' inside a `bash -c '...'` body —
+    # any complex inline body is lost. The powershell field therefore points at a
+    # zero-quote path to orfi-run-hook.ps1, which resolves the hook .sh under the
+    # C:/... , /c/..., /mnt/c/... forms and invokes it. The "bash" field keeps the
+    # inline resolver because a direct bash host has no shim in the way.
     $src = Join-Path $CopilotHooksSrc 'orfi-kit.json'
     $dest = Join-Path $CopilotHooks 'orfi-kit.json'
     if (-not (Test-Path $CopilotHooks)) { New-Item -ItemType Directory -Path $CopilotHooks -Force | Out-Null }
@@ -655,6 +673,8 @@ function Install-CopilotHooks {
     $hooksHome = $hooksHome.TrimEnd('\') -replace '\\', '/'
     $rendered = $raw -replace '@ORFI_COPILOT_HOME@', $hooksHome
     [System.IO.File]::WriteAllText($dest, $rendered, [System.Text.UTF8Encoding]::new($false))
+    Place (Join-Path $RepoDir 'claude/hooks/orfi-run-hook.ps1') (Join-Path $ClaudeHooks 'orfi-run-hook.ps1')
+    Normalize-Lf (Join-Path $ClaudeHooks 'orfi-run-hook.ps1')
     Say "  wrote $dest (script home: $hooksHome)"
 }
 

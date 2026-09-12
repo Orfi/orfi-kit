@@ -5,8 +5,8 @@
       {
         "type": "command",
         "matcher": "Bash",
-        "bash": "bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-enforce-sync.sh\"",
-        "powershell": "& bash -c 'bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-enforce-sync.sh\"'",
+        "bash": "d=\"@ORFI_COPILOT_HOME@\"; x=${d%%:*}; r=${d#*:}; t=\"$d/.claude/hooks/orfi-kit-enforce-sync.sh\"; [ -f \"$t\" ] || t=\"/mnt/$(printf \"%s\" \"$x\" | tr \"A-Z\" \"a-z\")$r/.claude/hooks/orfi-kit-enforce-sync.sh\"; [ -f \"$t\" ] || t=\"/c$r/.claude/hooks/orfi-kit-enforce-sync.sh\"; bash \"$t\"",
+        "powershell": "& '@ORFI_COPILOT_HOME@/.claude/hooks/orfi-run-hook.ps1' enforce-sync",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 10
       }
@@ -15,16 +15,16 @@
       {
         "type": "command",
         "matcher": "Write|Edit|MultiEdit",
-        "bash": "bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-csharp-format.sh\"",
-        "powershell": "& bash -c 'bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-csharp-format.sh\"'",
+        "bash": "d=\"@ORFI_COPILOT_HOME@\"; x=${d%%:*}; r=${d#*:}; t=\"$d/.claude/hooks/orfi-kit-verify-csharp-format.sh\"; [ -f \"$t\" ] || t=\"/mnt/$(printf \"%s\" \"$x\" | tr \"A-Z\" \"a-z\")$r/.claude/hooks/orfi-kit-verify-csharp-format.sh\"; [ -f \"$t\" ] || t=\"/c$r/.claude/hooks/orfi-kit-verify-csharp-format.sh\"; bash \"$t\"",
+        "powershell": "& '@ORFI_COPILOT_HOME@/.claude/hooks/orfi-run-hook.ps1' verify-csharp-format",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 120
       },
       {
         "type": "command",
         "matcher": "Write|Edit|MultiEdit",
-        "bash": "bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-cpp-format.sh\"",
-        "powershell": "& bash -c 'bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-cpp-format.sh\"'",
+        "bash": "d=\"@ORFI_COPILOT_HOME@\"; x=${d%%:*}; r=${d#*:}; t=\"$d/.claude/hooks/orfi-kit-verify-cpp-format.sh\"; [ -f \"$t\" ] || t=\"/mnt/$(printf \"%s\" \"$x\" | tr \"A-Z\" \"a-z\")$r/.claude/hooks/orfi-kit-verify-cpp-format.sh\"; [ -f \"$t\" ] || t=\"/c$r/.claude/hooks/orfi-kit-verify-cpp-format.sh\"; bash \"$t\"",
+        "powershell": "& '@ORFI_COPILOT_HOME@/.claude/hooks/orfi-run-hook.ps1' verify-cpp-format",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 120
       }
@@ -32,15 +32,15 @@
     "Stop": [
       {
         "type": "command",
-        "bash": "bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-enforce-brevity.sh\"",
-        "powershell": "& bash -c 'bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-enforce-brevity.sh\"'",
+        "bash": "d=\"@ORFI_COPILOT_HOME@\"; x=${d%%:*}; r=${d#*:}; t=\"$d/.claude/hooks/orfi-kit-enforce-brevity.sh\"; [ -f \"$t\" ] || t=\"/mnt/$(printf \"%s\" \"$x\" | tr \"A-Z\" \"a-z\")$r/.claude/hooks/orfi-kit-enforce-brevity.sh\"; [ -f \"$t\" ] || t=\"/c$r/.claude/hooks/orfi-kit-enforce-brevity.sh\"; bash \"$t\"",
+        "powershell": "& '@ORFI_COPILOT_HOME@/.claude/hooks/orfi-run-hook.ps1' enforce-brevity",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-skill-contract.sh\"",
-        "powershell": "& bash -c 'bash \"@ORFI_COPILOT_HOME@/.claude/hooks/orfi-kit-verify-skill-contract.sh\"'",
+        "bash": "d=\"@ORFI_COPILOT_HOME@\"; x=${d%%:*}; r=${d#*:}; t=\"$d/.claude/hooks/orfi-kit-verify-skill-contract.sh\"; [ -f \"$t\" ] || t=\"/mnt/$(printf \"%s\" \"$x\" | tr \"A-Z\" \"a-z\")$r/.claude/hooks/orfi-kit-verify-skill-contract.sh\"; [ -f \"$t\" ] || t=\"/c$r/.claude/hooks/orfi-kit-verify-skill-contract.sh\"; bash \"$t\"",
+        "powershell": "& '@ORFI_COPILOT_HOME@/.claude/hooks/orfi-run-hook.ps1' verify-skill-contract",
         "env": { "ORFI_HOOK_PLATFORM": "copilot" },
         "timeoutSec": 30
       }

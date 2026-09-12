@@ -192,6 +192,12 @@ usage() {
 }
 
 # place one item (dir or file) from src -> dest, copy or symlink per $LINK
+lf_normalize() {
+  # Installed hooks must be LF: git core.autocrlf or a stale checkout can leave
+  # CRLF on disk, and bash errors on the trailing ^M ($'\r': command not found).
+  tr -d '\r' < "$1" > "$1.lf" && mv "$1.lf" "$1"
+}
+
 place() {
   local src="$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
@@ -240,7 +246,12 @@ install_scripts_to() {
   for s in "${SCRIPT_NAMES[@]}"; do
     place "$SCRIPTS_SRC/$s" "$target_dir/$s"
     # .sh twins are useless without the bit; harmless on the .ps1 files.
-    case "$s" in *.sh) chmod +x "$target_dir/$s" 2>/dev/null || true ;; esac
+    case "$s" in
+      *.sh)
+        chmod +x "$target_dir/$s" 2>/dev/null || true
+        [ "$LINK" -eq 1 ] || lf_normalize "$target_dir/$s"
+        ;;
+    esac
   done
 }
 
@@ -733,6 +744,7 @@ install_shared_hooks() {
   for name in "${ALL_HOOK_NAMES[@]}"; do
     place "$REPO_DIR/claude/hooks/$name" "$CLAUDE_HOOKS/$name"
     chmod +x "$CLAUDE_HOOKS/$name" 2>/dev/null || true
+    [ "$LINK" -eq 1 ] || lf_normalize "$CLAUDE_HOOKS/$name"
   done
 }
 
@@ -753,6 +765,14 @@ install_copilot_hooks() {
   # command failed closed. cygpath -m converts the msys home to the
   # C:/Users/... form, which both PowerShell and Git Bash resolve; without
   # cygpath (Linux/macOS) $HOME is already the right absolute POSIX path.
+  #
+  # Runtime transport: Copilot runs the "powershell" field through Windows
+  # PowerShell, whose spawned bash is the WSL shim (C:\Windows\system32\bash.exe)
+  # that MANGLES inline double-quotes and '=' inside a `bash -c '...'` body —
+  # any complex inline body is lost. The powershell field therefore points at a
+  # zero-quote path to orfi-run-hook.ps1, which resolves the hook .sh under the
+  # C:/... , /c/..., /mnt/c/... forms and invokes it. The "bash" field keeps the
+  # inline resolver because a direct bash host has no shim in the way.
   local hooks_home
   if command -v cygpath >/dev/null 2>&1; then
     hooks_home="$(cygpath -m "$HOME")"
@@ -762,6 +782,10 @@ install_copilot_hooks() {
   mkdir -p "$COPILOT_HOOKS"
   # --link is ignored for this single file: a symlink would keep the placeholder.
   sed "s|@ORFI_COPILOT_HOME@|$hooks_home|g" "$COPILOT_HOOKS_SRC/orfi-kit.json" > "$COPILOT_HOOKS/orfi-kit.json"
+  lf_normalize "$COPILOT_HOOKS/orfi-kit.json"
+  # The ps1 runner the powershell field calls; lives next to the shared hooks.
+  place "$REPO_DIR/claude/hooks/orfi-run-hook.ps1" "$CLAUDE_HOOKS/orfi-run-hook.ps1"
+  lf_normalize "$CLAUDE_HOOKS/orfi-run-hook.ps1"
   say "  wrote $COPILOT_HOOKS/orfi-kit.json (script home: $hooks_home)"
 }
 
