@@ -98,6 +98,10 @@ read — the baseline is enforced by you applying it, not by a tool.
 ## Notes
 
 - Pairs with `orfi-kit-verify-cpp-format-hook`, which checks the file *after* it is written.
-- The Copilot side loads the same rule text via the guardrails extension (`onSessionStart`), but has **no verifier** — that SDK exposes no per-edit event. See the README.
+- On Copilot the same rule text loads via the guardrails extension (`onSessionStart`), and written
+  files are verified by the native `PostToolUse` hooks (`~/.copilot/hooks/orfi-kit.json`); this
+  loader itself is not registered there because the extension already serves the rules at session
+  start. OpenCode gets the rules at chat start via the plugin (`chat.system.transform`). See the
+  README.
 - The rule text is duplicated between this hook and `extension.mjs` on purpose (different platforms, no shared code). **Change them together.**
 - Installed globally under `~/.claude/hooks/`, so it applies across all projects.

@@ -175,10 +175,12 @@ If a tool can't run, say so plainly and treat the result as unconfirmed rather t
 `CONTRACT.conf` (next to this file) lists the steps above that are non-negotiable: the
 `orfi-kit-xml-docs` companion, the tool lane, the scope diff, and the `--changed` / `@{u}` traps.
 
-**On Copilot nothing enforces it.** The extension API exposes only `onSessionStart` and
-`onUserPromptSubmitted` — no post-response event — so there is no way to check what actually ran.
-Under Claude Code the same file is enforced by a Stop hook that blocks the report when a step has no
-`tool_use` record. Here it is a checklist held by you alone.
+**On Copilot it is enforced by a native Stop hook.** Installing the Copilot runtime registers this
+same contract (`~/.copilot/hooks/orfi-kit.json`) as a Stop hook — the very script Claude Code uses —
+so a final report with a step that has no `tool_use` record is blocked and fed back. OpenCode has no
+Stop event, so it is not enforced there. The discipline below still matters: using the native hooks
+is an install choice, and a step reported as done when it never ran fails the contract on any
+enforcing platform.
 
 That makes the discipline more important, not less. The failure it guards against is real and
 recurring: a review reported three times in one session with the companion skills never invoked,

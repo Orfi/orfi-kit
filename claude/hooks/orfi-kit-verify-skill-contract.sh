@@ -4,6 +4,11 @@
 # Trigger : Stop — fires when the assistant finishes a reply
 # Exit non-zero (2) = BLOCK: feed the gaps back and make the assistant run them
 #
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. Claude reads the
+#           block from stderr + exit 2. Copilot Stop takes a block decision JSON
+#           on stdout (no exit-code contract there). opencode has no Stop event,
+#           so this hook is not wired on that platform and never fakes it.
+#
 # Rationale: the code-review skills mandate companion skills (/security-review,
 # /orfi-kit-xml-docs) and a tool lane (dotnet format/build/test). The prose is
 # explicit, compelling, and did not bind: a review was reported three times in one
@@ -48,8 +53,14 @@ set -uo pipefail
 [ "${ORFI_SKILL_CONTRACT_OFF:-0}" = "1" ] && exit 0
 
 # Where contracts live. A skill's contract sits beside its SKILL.md, so an
-# installed skill and its rules travel together and cannot drift apart.
-SKILL_DIRS="${ORFI_SKILL_DIRS:-$HOME/.claude/skills}"
+# installed skill and its rules travel together and cannot drift apart. Search
+# every platform's skill root, not just Claude's: a Copilot session may run a
+# skill installed under ~/.copilot/skills, and the same contract must judge it.
+SKILL_DIRS="${ORFI_SKILL_DIRS:-$HOME/.claude/skills:$HOME/.copilot/skills:${XDG_CONFIG_HOME:-$HOME/.config}/opencode/skills}"
+
+# Platform contract. Same logic everywhere; only the output encoding differs.
+# Unset = Claude's historical behavior, byte-for-byte.
+HOOK_PLATFORM="${ORFI_HOOK_PLATFORM:-claude}"
 
 PAYLOAD="$(cat 2>/dev/null || true)"
 [ -z "$PAYLOAD" ] && exit 0
@@ -71,6 +82,13 @@ fi
 [ -z "$TRANSCRIPT" ] && exit 0
 [ ! -f "$TRANSCRIPT" ] && exit 0
 
+# Honesty guard for Copilot transcripts (same rationale as enforce-brevity): if
+# the schema is unrecognisable, say we did not enforce rather than fake a pass.
+if [ "$HOOK_PLATFORM" = "copilot" ] && ! grep -q '"type":"assistant"' "$TRANSCRIPT" 2>/dev/null; then
+  echo "orfi-kit-verify-skill-contract: transcript '$TRANSCRIPT' is not Claude-shaped; contract enforcement NOT run on this session. Refusing to fake a pass." >&2
+  exit 0
+fi
+
 # --- Find the open contract --------------------------------------------------
 # Walk the transcript once, recording the LAST line number at which each
 # contract-bearing skill was invoked. Last, not first: a session may run the
@@ -79,7 +97,7 @@ CONTRACT_FILE=""
 CONTRACT_SKILL=""
 CONTRACT_LINE=0
 
-for dir in $SKILL_DIRS; do
+for dir in ${SKILL_DIRS//:/ }; do
   [ -d "$dir" ] || continue
   for cf in "$dir"/*/CONTRACT.conf; do
     [ -f "$cf" ] || continue
@@ -231,31 +249,24 @@ done < "$CONTRACT_FILE"
 
 [ -z "$MISSING" ] && [ -z "$FABRICATED" ] && [ -z "$VIOLATED" ] && exit 0
 
-# --- BLOCK: stderr on exit 2 is fed back to the assistant --------------------
-{
-  echo "BLOCKED: this report does not match the session record."
-  echo
-  echo "Contract: $CONTRACT_SKILL (CONTRACT.conf, enforced from the transcript)."
-  echo "Your reply is report-shaped, so $CONTRACT_SKILL's mandated steps must all"
-  echo "have a tool_use record after the skill was invoked. These do not:"
+# --- BLOCK: Claude feeds stderr back on exit 2; Copilot Stop takes a block
+# decision JSON on stdout. Build the message once, deliver per platform.
+REASON="BLOCKED: this report does not match the session record.
 
-  [ -n "$FABRICATED" ] && {
-    echo
-    echo "CLAIMED BUT NOT RECORDED — the report says or implies these ran:"
-    echo "$FABRICATED"
-  }
-  [ -n "$MISSING" ] && {
-    echo
-    echo "NOT RUN:"
-    echo "$MISSING"
-  }
-  [ -n "$VIOLATED" ] && {
-    echo
-    echo "RUN THE WRONG WAY — these produce a pass that inspected nothing:"
-    echo "$VIOLATED"
-  }
-
-  cat <<'EOF'
+Contract: $CONTRACT_SKILL (CONTRACT.conf, enforced from the transcript).
+Your reply is report-shaped, so $CONTRACT_SKILL's mandated steps must all
+have a tool_use record after the skill was invoked. These do not:
+"
+[ -n "$FABRICATED" ] && REASON="$REASON
+CLAIMED BUT NOT RECORDED — the report says or implies these ran:
+$FABRICATED"
+[ -n "$MISSING" ] && REASON="$REASON
+NOT RUN:
+$MISSING"
+[ -n "$VIOLATED" ] && REASON="$REASON
+RUN THE WRONG WAY — these produce a pass that inspected nothing:
+$VIOLATED"
+REASON="$REASON
 
 What to do now:
   1. Actually invoke each step above. Do not summarise, infer, or substitute your
@@ -263,11 +274,23 @@ What to do now:
      gate exists to catch.
   2. A step that CANNOT run still has to be attempted. The attempt leaves a record
      and satisfies the requirement; its failure is then a real, reportable fact.
-     "skipped (unavailable)" is honest only after trying.
+     \"skipped (unavailable)\" is honest only after trying.
   3. Then rewrite the report from what the tools actually returned.
 
 Do not reply with a corrected report before running them — the record is checked,
-not the wording, so an edited report with no new records will be blocked again.
-EOF
-} >&2
+not the wording, so an edited report with no new records will be blocked again."
+
+if [ "$HOOK_PLATFORM" = "copilot" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$REASON" | jq -Rs '{decision:"block",reason:.}'
+  else
+    ESCAPED="$(printf '%s' "$REASON" \
+      | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+      | awk '{ printf "%s\\n", $0 }')"
+    printf '{"decision":"block","reason":"%s"}\n' "$ESCAPED"
+  fi
+  exit 0
+fi
+
+printf '%s\n' "$REASON" >&2
 exit 2

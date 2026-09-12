@@ -64,6 +64,21 @@ Loop-safe: Claude Code sets `stop_hook_active` on re-entry, and the hook exits 0
 
 ## Copilot
 
-No equivalent. The Copilot SDK exposes only `onSessionStart` and `onUserPromptSubmitted` — no per-tool and no post-response event — so there is nowhere to hang a verifier that inspects what actually ran. The same asymmetry already applies to the brevity guardrail and the format verifiers.
+Now enforced. `~/.copilot/hooks/orfi-kit.json` registers this same script as a native `Stop` hook
+(`ORFI_HOOK_PLATFORM=copilot`). Copilot's payload arrives with snake_case fields (`transcript_path`,
+`stop_hook_active`), and the verdict is a **block decision** JSON (`{"decision":"block","reason":"…"}`
+on stdout, exit 0) instead of Claude's non-zero exit. Copilot bounds the rewrite loop with its own
+8-consecutive-blocks guard; the script still honours the `stop_hook_active` re-entry flag.
 
-The Copilot skill copies still carry `CONTRACT.conf` as the single source of truth, headed by a notice that it is a checklist there and not a gate. Their C# and C++ contracts drop the `security-review` row, because Copilot CLI ships no such skill and requiring one that cannot exist would make the gate fire on correct behaviour.
+**Transcript-shape honesty guard.** The Stop scripts were written against Claude transcripts, so on
+Copilot they `grep` the transcript for `"type":"assistant"` before enforcing. A transcript that does
+not match gets a *"transcript is not Claude-shaped … Refusing to fake a pass"* note and a clean exit —
+a hook must never judge a format it doesn't understand.
+
+**OpenCode has no Stop event**, so the plugin does not port this hook; the gap is documented in
+`orfi-kit-opencode-plugin` rather than faked.
+
+The Copilot skill copies carry `CONTRACT.conf` as the single source of truth, headed by a notice that
+it is mechanically enforced when the native hooks are installed and a checklist otherwise. Their C#
+and C++ contracts drop the `security-review` row, because Copilot CLI ships no such skill and
+requiring one that cannot exist would make the gate fire on correct behaviour.

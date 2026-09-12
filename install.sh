@@ -2,10 +2,13 @@
 #
 # orfi-kit installer.
 #
-# orfi-kit is skills/markdown plus seven Claude Code hooks and one Copilot
-# extension. This script is install-time plumbing only: it copies (or symlinks) skills,
-# commands, the hooks (+ settings.json wiring), and the Copilot extension
-# into the right directories for Claude Code, OpenCode, and/or GitHub Copilot CLI.
+# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, and a
+# Copilot extension. The SAME seven bash hooks power all three runtimes: Claude Code
+# via ~/.claude/settings.json, GitHub Copilot CLI via a hooks registration file
+# (~/.copilot/hooks/orfi-kit.json), and OpenCode via a plugin that shells to the
+# same scripts. This script is install-time plumbing only: it copies (or symlinks)
+# skills, commands, the hooks, the plugin, and the extension into the right
+# directories for Claude Code, OpenCode, and/or GitHub Copilot CLI.
 #
 # Usage:
 #   ./install.sh                 interactive: asks which runtime(s) to install for
@@ -23,6 +26,12 @@
 #   * Claude Code only        -> ~/.claude/skills/
 #   * OpenCode only           -> ~/.config/opencode/skills/
 #   * both runtimes installed -> ~/.claude/skills/ only (OpenCode reads it natively)
+#
+# Hooks (the bash scripts) have ONE shared home per machine — ~/.claude/hooks —
+# serving Claude Code's settings.json, every Copilot hooks entry (which references
+# $HOME/.claude/hooks), and the OpenCode plugin. OpenCode has no settings.json
+# hooks model, so its transport is a TypeScript plugin under
+# ~/.config/opencode/plugins committed against the same scripts.
 
 set -euo pipefail
 
@@ -35,6 +44,8 @@ CMDS_SRC="$REPO_DIR/claude/commands"
 HOOK_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-sync.sh"
 BREVITY_SRC="$REPO_DIR/claude/hooks/orfi-kit-enforce-brevity.sh"
 EXT_SRC="$REPO_DIR/copilot/extensions/orfi-kit-guardrails"
+COPILOT_HOOKS_SRC="$REPO_DIR/copilot/hooks"          # Copilot CLI hooks registration (JSON)
+OPENCODE_PLUGINS_SRC="$REPO_DIR/opencode/plugins"    # OpenCode hook plugin (TypeScript)
 SCRIPTS_SRC="$REPO_DIR/scripts"
 
 CLAUDE_SKILLS="$HOME/.claude/skills"
@@ -48,6 +59,8 @@ OPENCODE_SCRIPTS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/scripts"
 COPILOT_SCRIPTS="$HOME/.copilot/scripts"
 COPILOT_SKILLS="$HOME/.copilot/skills"          # Copilot's own home — no command file
 COPILOT_EXTS="$HOME/.copilot/extensions"        # verified from Copilot CLI bundle
+COPILOT_HOOKS="$HOME/.copilot/hooks"            # Copilot CLI hooks registration
+OPENCODE_PLUGINS="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins"
 
 HOOK_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-sync.sh"
 HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
@@ -55,22 +68,23 @@ HOOK_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\""
 BREVITY_DEST="$CLAUDE_HOOKS/orfi-kit-enforce-brevity.sh"
 BREVITY_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh\""
 
-# Skill-contract Stop hook (Claude Code only). Blocks a skill's final report when
-# a step the skill mandates has no tool_use record in the session transcript.
-# Contracts live in CONTRACT.conf beside each SKILL.md, so a skill and its
-# enforced rules install together and cannot drift apart.
+# Skill-contract Stop hook. Blocks a skill's final report when a step the skill
+# mandates has no tool_use record in the session transcript. Contracts live in
+# CONTRACT.conf beside each SKILL.md, so a skill and its enforced rules install
+# together and cannot drift apart.
 #
-# No Copilot equivalent: that SDK exposes only onSessionStart and
-# onUserPromptSubmitted — no post-response event — so there is nothing to hang a
-# verifier on. Same asymmetry already documented for the brevity guardrail.
+# Wired for Claude Code via settings.json Stop AND for Copilot via the Stop event
+# in copilot/hooks/orfi-kit.json (transcript_path from the Stop payload; Copilot
+# forces a correction turn with the reason).
 CONTRACT_DEST="$CLAUDE_HOOKS/orfi-kit-verify-skill-contract.sh"
 CONTRACT_CMD="bash \"\$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh\""
 
-# Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
-# repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
-# check the file after. The verifiers have no Copilot equivalent: that SDK has
-# only onSessionStart / onUserPromptSubmitted, so it can load conventions but
-# cannot verify an edit. See copilot/extensions/orfi-kit-guardrails/extension.mjs.
+# Convention hooks: two PreToolUse loaders that surface the repo's own rules
+# BEFORE a file is written, and two PostToolUse verifiers that check the file
+# after. Claude Code wires all four through settings.json; Copilot wires the
+# verifiers (advisory — PostToolUse has no block semantics) through
+# orfi-kit.json, and extension.mjs still loads conventions at session start as a
+# first pass.
 #
 # Matchers are TOOL names (Write|Edit|MultiEdit), never file globs — the *.cs and
 # C++ extension filtering happens inside each hook, from .tool_input.file_path.
@@ -83,6 +97,20 @@ CONV_HOOK_NAMES=(
 CONV_PRE_HOOKS=(orfi-kit-load-csharp-conventions.sh orfi-kit-load-cpp-conventions.sh)
 CONV_POST_HOOKS=(orfi-kit-verify-csharp-format.sh orfi-kit-verify-cpp-format.sh)
 CONV_MATCHER="Write|Edit|MultiEdit"
+
+# The 7 shared enforcement hooks. All three runtimes shell to these scripts:
+# Claude Code via settings.json, Copilot via copilot/hooks/orfi-kit.json, OpenCode
+# via the plugin. Used to guarantee the scripts exist under ~/.claude/hooks even
+# when Claude Code is not part of the install.
+ALL_HOOK_NAMES=(
+  orfi-kit-enforce-sync.sh
+  orfi-kit-enforce-brevity.sh
+  orfi-kit-verify-skill-contract.sh
+  orfi-kit-load-csharp-conventions.sh
+  orfi-kit-load-cpp-conventions.sh
+  orfi-kit-verify-csharp-format.sh
+  orfi-kit-verify-cpp-format.sh
+)
 
 # The 7 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs orfi-kit-csharp-code-review orfi-kit-cpp-code-review)
@@ -567,6 +595,45 @@ remove_copilot_extension() {
   fi
 }
 
+# --- Shared hooks for the OpenCode plugin and the Copilot hooks registration ---
+# ~/.claude/hooks is the ONE home for the seven scripts regardless of runtime.
+# Claude Code's wire_* functions above place them; these helpers guarantee they
+# exist for the OpenCode plugin and the Copilot hooks JSON when Claude Code is
+# not part of the install. --link connects them back to the repo for dev.
+
+install_shared_hooks() {
+  local name
+  for name in "${ALL_HOOK_NAMES[@]}"; do
+    place "$REPO_DIR/claude/hooks/$name" "$CLAUDE_HOOKS/$name"
+    chmod +x "$CLAUDE_HOOKS/$name" 2>/dev/null || true
+  done
+}
+
+remove_shared_hooks() {
+  local name
+  for name in "${ALL_HOOK_NAMES[@]}"; do
+    if [ -e "$CLAUDE_HOOKS/$name" ] || [ -L "$CLAUDE_HOOKS/$name" ]; then
+      rm -f "$CLAUDE_HOOKS/$name"; say "  removed $CLAUDE_HOOKS/$name"
+    fi
+  done
+}
+
+install_copilot_hooks() { place "$COPILOT_HOOKS_SRC/orfi-kit.json" "$COPILOT_HOOKS/orfi-kit.json"; }
+
+remove_copilot_hooks() {
+  if [ -e "$COPILOT_HOOKS/orfi-kit.json" ] || [ -L "$COPILOT_HOOKS/orfi-kit.json" ]; then
+    rm -f "$COPILOT_HOOKS/orfi-kit.json"; say "  removed $COPILOT_HOOKS/orfi-kit.json"
+  fi
+}
+
+install_opencode_plugin() { place "$OPENCODE_PLUGINS_SRC/orfi-kit-hooks.ts" "$OPENCODE_PLUGINS/orfi-kit-hooks.ts"; }
+
+remove_opencode_plugin() {
+  if [ -e "$OPENCODE_PLUGINS/orfi-kit-hooks.ts" ] || [ -L "$OPENCODE_PLUGINS/orfi-kit-hooks.ts" ]; then
+    rm -f "$OPENCODE_PLUGINS/orfi-kit-hooks.ts"; say "  removed $OPENCODE_PLUGINS/orfi-kit-hooks.ts"
+  fi
+}
+
 # --- arg parsing -------------------------------------------------------------
 
 for arg in "$@"; do
@@ -622,11 +689,18 @@ if [ "$MODE" = "uninstall" ]; then
     remove_claude_skills_from "$OPENCODE_SKILLS"
     remove_commands_from "$OPENCODE_CMDS"
     remove_scripts_from "$OPENCODE_SCRIPTS"
+    remove_opencode_plugin
   fi
   if [ "$WANT_CP" -eq 1 ]; then
     remove_copilot_skills
     remove_copilot_extension
+    remove_copilot_hooks
     remove_scripts_from "$COPILOT_SCRIPTS"
+  fi
+  # Shared scripts in ~/.claude/hooks were placed here only when Claude Code was
+  # not part of the install; Claude's own uninstall already removes them above.
+  if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ]; }; then
+    remove_shared_hooks
   fi
   say "Done."
   exit 0
@@ -668,7 +742,8 @@ say "Installing doc-checker scripts (xml-docs + doxygen-docs, and setup-hooks):"
 say "  (project tooling: copy them into a repo's scripts/ so its CI can run them,"
 say "   and run setup-hooks there once to wire .githooks/pre-commit)"
 
-# Hook + settings wiring: Claude Code only (OpenCode has no settings.json hooks model here).
+# Hook + settings wiring under settings.json: Claude Code only. OpenCode's
+# transport is a plugin (wired below); Copilot uses its own hooks JSON.
 if [ "$WANT_CC" -eq 1 ]; then
   say ""
   say "Installing sync-enforcement hook (Claude Code):"
@@ -685,7 +760,23 @@ if [ "$WANT_CC" -eq 1 ]; then
   wire_contract_hook
 fi
 
-# --- Copilot CLI (own source, own home, no command file) + extension ---------
+# The seven scripts must be under ~/.claude/hooks for the OpenCode plugin and the
+# Copilot hooks JSON. Claude Code placed them above; any other runtime that was
+# selected ensures they exist.
+if [ "$WANT_CC" -eq 0 ] && { [ "$WANT_OC" -eq 1 ] || [ "$WANT_CP" -eq 1 ]; }; then
+  say ""
+  say "Installing shared enforcement hooks to ~/.claude/hooks (used by the Copilot"
+  say "hooks registration and the OpenCode plugin):"
+  install_shared_hooks
+fi
+
+if [ "$WANT_OC" -eq 1 ]; then
+  say ""
+  say "Installing OpenCode plugin (orfi-kit-hooks.ts):"
+  install_opencode_plugin
+fi
+
+# --- Copilot CLI (own source, own home, no command file) + extension + hooks ---
 
 if [ "$WANT_CP" -eq 1 ]; then
   say ""
@@ -693,6 +784,8 @@ if [ "$WANT_CP" -eq 1 ]; then
   install_copilot_skills
   say "Installing Copilot guardrails extension to ~/.copilot/extensions:"
   install_copilot_extension
+  say "Installing Copilot hooks registration to ~/.copilot/hooks:"
+  install_copilot_hooks
 fi
 
 say ""

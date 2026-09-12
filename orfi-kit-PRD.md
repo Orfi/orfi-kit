@@ -113,15 +113,31 @@ Each is a **directory** holding `SKILL.md` and possibly `README.md` / `evals/`:
   same rationale for being a skill directory. Runs `clang-format` / `clang-tidy` / build / tests
   instead of the .NET toolchain.
 
-### 3.3 Claude Code — hooks (from `claude-tools/hooks/`)
+### 3.3 Enforcement hooks (shared scripts, from `claude/hooks/`)
+
+**Seven hook scripts** are the single source of enforcement logic for all three runtimes. Each
+runtime registers them through its own channel (Claude `settings.json`, Copilot native hooks,
+OpenCode plugin); the scripts branch on `ORFI_HOOK_PLATFORM` to emit the right output contract:
 
 - `orfi-kit-enforce-sync.sh` — a **PreToolUse** hook on **Bash** that **blocks `git push`** when a
   feature branch is out of sync with its parent epic. Pairs with `orfi-kit-sync-branch`.
 - `orfi-kit-enforce-brevity.sh` — a **Stop** hook that **blocks over-long replies**: it counts the
   lines in the finished assistant turn and, past ~25 (about one page), feeds the reply back with an
   instruction to shorten. Threshold overridable via `ORFI_BREVITY_MAX_LINES`; lifted when the user
-  asks for depth. Enforces the brevity rule in `orfi-kit-guardrails` mechanically. Requires `jq`
-  (fails open without it).
+  asks for depth. Uses `jq` when present, falls back to `sed` (fails open on a missing tool).
+- `orfi-kit-verify-skill-contract.sh` — a **Stop** hook that blocks a skill's final report when a
+  step it mandates has no `tool_use` record in the transcript; reads `CONTRACT.conf` beside the
+  skill. Disable with `ORFI_SKILL_CONTRACT_OFF=1`.
+- `orfi-kit-load-csharp-conventions.sh`, `orfi-kit-load-cpp-conventions.sh` — **PreToolUse**
+  loaders that emit the repo's own `.editorconfig` / `.clang-format` / `.clang-tidy` rules (or the
+  kit baseline) before a file is written. Advisory.
+- `orfi-kit-verify-csharp-format.sh`, `orfi-kit-verify-cpp-format.sh` — **PostToolUse** verifiers
+  that run the real formatters after a write and report findings to the model. Advisory.
+
+Registration surfaces: **Claude Code** wires all seven into `~/.claude/settings.json`; **Copilot
+CLI** registers five via `copilot/hooks/orfi-kit.json` (native hooks — the two loaders are instead
+served by the extension at `onSessionStart`); **OpenCode** runs the same scripts through
+`opencode/plugins/orfi-kit-hooks.ts` (no Stop event → brevity and skill-contract are not ported).
 
 ### 3.4 Copilot — skills (from `copilot-tools/skills/`)
 
@@ -154,7 +170,24 @@ commands = 21 Copilot skills.)
 ### 3.5 Copilot — extensions (from `copilot-tools/extensions/`)
 
 - `orfi-kit-guardrails/` — contains `extension.mjs`, a Copilot SDK **session extension** that
-  injects guardrails as **always-active context**.
+  injects guardrails and the C#/C++ conventions as **always-active context** at `onSessionStart`,
+  plus an `onUserPromptSubmitted` brevity nudge. It loads context; the **native hooks**
+  (`copilot/hooks/orfi-kit.json`, registered to `~/.copilot/hooks/`) add the gating and verifying
+  the SDK extension cannot (Stop + PostToolUse events).
+
+### 3.5.1 Copilot — native hooks (from `copilot/hooks/`)
+
+`orfi-kit.json` registers the shared scripts as native Copilot hooks: `PreToolUse`/`Bash` (sync,
+deny), `Stop` (brevity + skill-contract, block JSON), `PostToolUse`/`Write|Edit|MultiEdit` (both
+verifiers, advisory `additionalContext`). Runs with `ORFI_HOOK_PLATFORM=copilot`, so verdicts are
+Copilot JSON, not exit codes. Command-hook timeouts are fail-open.
+
+### 3.5.2 OpenCode — plugin (from `opencode/plugins/`)
+
+`orfi-kit-hooks.ts` runs the same scripts for OpenCode with `ORFI_HOOK_PLATFORM=opencode`:
+`tool.execute.before` gates `git push`, `tool.execute.after` merges verifier findings into the tool
+result, `chat.system.transform` injects the conventions at chat start (root probe, cached 1h). No
+Stop event → brevity and skill-contract are **not** ported (documented gap, not a fake gate).
 
 ### 3.6 EXCLUDE — must NOT be included
 
@@ -176,11 +209,14 @@ orfi-kit/
   claude/
     commands/   <- the 14 orfi-kit-*.md command files
     skills/     <- the 7 orfi-kit-* Claude skill dirs
-    hooks/      <- the 6 orfi-kit-*.sh Claude Code hooks (sync, brevity,
-                   2 convention loaders, 2 format verifiers)
+    hooks/      <- the 7 orfi-kit-*.sh shared hook scripts (sync, brevity,
+                   skill-contract, 2 convention loaders, 2 format verifiers)
   copilot/
     skills/     <- the 21 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
+    hooks/      <- orfi-kit.json  (native Copilot hook registration)
+  opencode/
+    plugins/    <- orfi-kit-hooks.ts  (OpenCode plugin; shells to the same scripts)
   docs/
     skills/     <- one .md per capability (repo docs; never installed to a runtime)
   scripts/    <- the doc-presence checkers + git-hook wiring, as .ps1/.sh twins:
@@ -212,8 +248,9 @@ The repo ships **TWO equivalent installers** that are a **maintenance pair kept 
 - `install.ps1` — PowerShell (cross-platform `pwsh`: Windows PowerShell 5+, and pwsh on
   Windows / macOS / Linux)
 
-They are **install-time plumbing only**. The kit itself is skills/markdown (and one hook + one
-extension) — there are **no runtime scripts** beyond the hook.
+They are **install-time plumbing only**. The kit itself is skills/markdown, seven hook scripts, a
+Copilot native-hooks registration, an OpenCode plugin, and a Copilot SDK extension — there are **no
+runtime scripts** beyond the hooks.
 
 > **Reference implementation:** Read the real trackbed installers and adapt them — they implement
 > nearly all of the behavior below:
@@ -221,7 +258,8 @@ extension) — there are **no runtime scripts** beyond the hook.
 > - `/mnt/BA707A64707A2773/code/trackbed/install.ps1`
 >
 > Adapt them: swap the `SKILLS` array, swap the command set (trackbed has one command; orfi-kit has
-> fourteen), and **add the two genuinely new capabilities** (hook + extension) called out below.
+> fourteen), and **add the genuinely new capabilities** (the seven hooks with three registration
+> surfaces, and the Copilot extension) called out below.
 
 ### 5.1 Interactive runtime selection
 
@@ -273,7 +311,7 @@ Copy the **14** `orfi-kit-*.md` command files into the runtime's `commands/` dir
 > Make sure your copy loop targets the 14 command files explicitly. Per-capability docs live in
 > `docs/skills/` and are never copied to a runtime.
 
-### 5.7 NEW for this kit (not in trackbed) — install the HOOK and the EXTENSION
+### 5.7 NEW for this kit (not in trackbed) — install the HOOKS, the Copilot native-hooks registration, the OpenCode plugin, and the EXTENSION
 
 This is the **one area where orfi-kit goes beyond trackbed.** Flag it clearly in code comments.
 
@@ -326,11 +364,36 @@ This is the **one area where orfi-kit goes beyond trackbed.** Flag it clearly in
 3. **Uninstall** should remove the hook file **and** remove the matching `PreToolUse` entry from
    `settings.json` (again, merge-aware: drop only the orfi-kit entry, leave everything else).
 
+   The **same seven scripts** are shared with the Copilot registration and the OpenCode plugin, so
+   they are installed to `~/.claude/hooks/` whenever any runtime that needs them is selected
+   (Claude Code, Copilot CLI, or OpenCode) — not only for Claude Code.
+
+#### 5.7.1a The Copilot native-hooks registration
+
+When the Copilot runtime is selected, also place `copilot/hooks/orfi-kit.json` → `~/.copilot/hooks/`
+(the directory Copilot CLI loads user hook registrations from; it coexists with any other `*.json`,
+e.g. `gsd-session.json`). This file registers **five** events from the shared scripts — `PreToolUse`
+`Bash` (sync), two `PostToolUse` `Write|Edit|MultiEdit` (verifiers), two `Stop` (brevity +
+skill-contract) — each with `env.ORFI_HOOK_PLATFORM=copilot` and a `timeoutSec` matching Claude Code.
+The two **loaders are deliberately not registered**: the extension serves conventions at
+`onSessionStart`. Uninstall removes the file.
+
+#### 5.7.1b The OpenCode plugin
+
+When the OpenCode runtime is selected, also place `opencode/plugins/orfi-kit-hooks.ts` →
+`~/.config/opencode/plugins/`. The plugin shells out to the shared scripts with
+`ORFI_HOOK_PLATFORM=opencode`: `tool.execute.before` gates `git push`, `tool.execute.after` merges
+verifier findings into the tool result, `chat.system.transform` injects conventions at chat start.
+OpenCode has **no Stop event**, so brevity and skill-contract are not ported — document that gap in
+the plugin header rather than faking a gate. Uninstall removes the file.
+
 #### 5.7.2 The Copilot extension
 
 - When the Copilot runtime is selected, also install the extension:
   `copilot/extensions/orfi-kit-guardrails/` (contains `extension.mjs`) → Copilot's **extensions
-  location**.
+  location**. The extension loads guardrails + conventions at `onSessionStart` and nudges on
+  over-long previous replies; the native hooks (§5.7.1a) provide the Stop and PostToolUse events the
+  SDK extension cannot.
 - **VERIFY THE CORRECT PATH.** The extensions directory is the analog of `~/.copilot/skills` for
   extensions, but confirm the actual Copilot CLI extensions path before hardcoding it (check
   Copilot CLI docs / an existing install). Do not guess silently — if unsure, document the assumed
@@ -409,9 +472,13 @@ The implementer can verify completion against this list:
       falling back to the prevailing pattern of the file being changed rather than general C++ norms;
       and (c) cover the C++-specific judgment lanes — memory/lifetime, const correctness, and header
       hygiene.
-- [ ] **Hooks present** — all six `claude/hooks/orfi-kit-*.sh` in the repo (sync, brevity, the two
-      convention loaders, the two format verifiers); all install to `~/.claude/hooks/`; all remain
-      executable.
+- [ ] **Hooks present** — all seven `claude/hooks/orfi-kit-*.sh` in the repo (sync, brevity,
+      skill-contract, the two convention loaders, the two format verifiers); all install to
+      `~/.claude/hooks/`; all remain executable.
+- [ ] **Hook registration surfaces** — Claude (`settings.json` entries), Copilot
+      (`~/.copilot/hooks/orfi-kit.json` registers PreToolUse/PostToolUse/Stop events from the shared
+      scripts), and OpenCode (`~/.config/opencode/plugins/orfi-kit-hooks.ts` plugin) all wired;
+      uninstall removes each surface.
 - [ ] **Hook settings wiring** — installer adds the PreToolUse/Bash entry (sync) and the Stop entry
       (brevity, no `matcher` — Stop events are not tool-scoped) to `settings.json` idempotently
       (auto), with manual-instructions fallback for each; uninstall removes both; `settings.json`

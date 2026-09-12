@@ -44,7 +44,7 @@ The extension registers no tools (`tools: []`); it only adds context.
 
 On each new prompt the extension measures the previous assistant reply and, if it exceeded 25 lines, injects a correction. Phrases that request depth ("in full", "in detail", "elaborate", …) suppress it for that turn.
 
-**This is a nudge, not a gate.** The SDK has no post-response event, so the over-long reply has already been sent by the time it is measured. The Claude Code Stop hook blocks instead. Expect this side to let long replies through and only tighten over a conversation.
+**This is a nudge, not a gate.** The SDK has no post-response event, so the over-long reply has already been sent by the time it is measured. With the kit's **native Copilot hooks** installed (`~/.copilot/hooks/orfi-kit.json` registers `orfi-kit-enforce-brevity.sh` as a `Stop` hook), the reply is blocked instead and must be rewritten; the nudge is the fallback for sessions without native hooks.
 
 ### Language conventions
 
@@ -59,17 +59,23 @@ Detection is a bounded, read-only walk of the workspace (depth 3, common build a
 
 ## Notes
 
-This is the Copilot CLI counterpart to the `orfi-kit-guardrails` skill on the Claude Code side.
+This is the Copilot CLI counterpart to the `orfi-kit-guardrails` skill on the Claude Code side, and it
+works **together with** the Copilot native hooks ([orfi-kit-copilot-hooks](orfi-kit-copilot-hooks.md)):
+the extension loads context, the native hooks gate and verify.
 
-**Two capabilities are Claude-Code-only, by platform limit.** The SDK offers no per-edit and no post-response event, so this extension can *load* conventions but cannot *verify* a written file, and cannot block an over-long reply:
+| | Copilot extension (this) | Copilot native hooks | Claude Code |
+| --- | --- | --- | --- |
+| Guardrails context | Yes, at session start | — | `orfi-kit-guardrails` skill |
+| Brevity | Nudge, one turn late | **Gate** — `Stop` hook | **Gate** — `Stop` hook |
+| Load conventions before a write | Yes, at session start | — (served by the extension) | Yes — 2 `PreToolUse` loaders |
+| Verify a file after a write | No — SDK has no per-edit event | Yes — 2 `PostToolUse` verifiers | Yes — 2 `PostToolUse` verifiers |
+| Skill-contract gate | No | Yes — `Stop` hook | Yes — `Stop` hook |
 
-| | Copilot CLI | Claude Code |
-| --- | --- | --- |
-| Guardrails | Yes | `orfi-kit-guardrails` skill |
-| Brevity | Nudge, one turn late | **Gate** — `orfi-kit-enforce-brevity-hook` |
-| Load conventions before a write | Yes, at session start | Yes — `orfi-kit-load-{csharp,cpp}-conventions-hook` |
-| Verify a file after a write | **No — no per-edit event** | Yes — `orfi-kit-verify-{csharp,cpp}-format-hook` |
+OpenCode is the remaining partial platform: no Stop event, so brevity and skill-contract are not
+ported there (see [orfi-kit-opencode-plugin](orfi-kit-opencode-plugin.md)).
 
-Do not "fix" the missing verifier by faking one here: a check that runs a turn late, against a file that may have changed again, is worse than an honest gap.
+Do not "fix" this extension's missing verifier by faking one here: a check that runs a turn late,
+against a file that may have changed again, is worse than an honest gap — the native hooks are how
+Copilot truly gates.
 
 **Duplicated rule text is deliberate.** The brevity depth-request list and the convention rule text each exist twice — once here, once in the Claude hooks — because the two run on different platforms and cannot share code. They have drifted before (this extension was once missing "elaborate" and "show more"). **Change them together.**

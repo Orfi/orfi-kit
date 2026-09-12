@@ -55,7 +55,7 @@ None are required, and every absence is reported rather than silently skipped:
   the payload.
 
 - On a clean file the hook stays **silent** on stdout; any "could not verify" note goes to stderr.
-- Claude-Code-only. See Notes.
+- Cross-platform — Claude (`PostToolUse`), Copilot (native `PostToolUse`), OpenCode (plugin). See Notes.
 
 ## Example
 
@@ -89,6 +89,11 @@ not clean. (CMake: CMAKE_EXPORT_COMPILE_COMMANDS=ON; qmake: use bear.)
 
 ## Notes
 
-- **There is no Copilot equivalent, by platform limitation.** The Copilot SDK exposes only `onSessionStart` and `onUserPromptSubmitted` — no per-edit event and no post-response event — so Copilot can *load* conventions but cannot *verify* an edit. This mirrors the brevity asymmetry already documented in `extension.mjs`: Claude gates, Copilot nudges.
+- **Copilot and OpenCode now run the same verifier.** `~/.copilot/hooks/orfi-kit.json` registers
+  this script as a native `PostToolUse` hook on `Write|Edit|MultiEdit`; under `ORFI_HOOK_PLATFORM=copilot`
+  it emits `{"additionalContext":"…"}` (exit 0), which Copilot appends to the tool result. OpenCode's
+  plugin merges the same findings via `tool.execute.after`. Neither platform has a block channel on a
+  per-edit result, so `ORFI_CPP_FORMAT_BLOCKING=1` remains Claude-only — on Copilot/OpenCode the
+  findings are advisory and the model acts on them.
 - Pairs with `orfi-kit-load-cpp-conventions-hook`.
 - Installed globally under `~/.claude/hooks/`, so it applies across all projects.

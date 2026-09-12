@@ -278,9 +278,10 @@ That is a different thing from missing **rules**: absent `.clang-format` / `.cla
 `CONFIG.md` baseline is the contract, so style is still reviewable. A missing tool narrows the review;
 a missing config does not.
 
-**On Copilot nothing enforces it** — the extension API has no post-response event, so there is no way
-to check what actually ran. Under Claude Code the same file is enforced by a Stop hook. Here the
-discipline is yours:
+**On Copilot it is enforced by a native Stop hook** — installing the Copilot runtime registers this
+contract (`~/.copilot/hooks/orfi-kit.json`) as a Stop hook, the same script Claude Code uses; a
+report with a step that has no `tool_use` record is blocked. OpenCode has no Stop event, so it is
+not enforced there. When the native hooks are not installed the discipline is yours:
 
 - **Never substitute your own reasoning for a mandated companion skill.** Invoke it.
 - **Attempt before declaring unavailable.** In C++ a tool that cannot run is a normal, reportable

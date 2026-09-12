@@ -61,5 +61,10 @@ After syncing, the push prints `Sync check passed: 'fix/ORFI-62593-null-check' i
 
 ## Notes
 
+- Cross-platform: on Claude Code this blocks via a non-zero exit; on Copilot CLI the same script is
+  registered as a native `PreToolUse`/`Bash` hook (`~/.copilot/hooks/orfi-kit.json`) and emits a
+  `deny` decision JSON (`{"permissionDecision":"deny",…}`, exit 0); on OpenCode the plugin throws on
+  the script's non-zero exit (`tool.execute.before`). All three use the same parent-epic state file
+  (`<worktree>/.claude/hooks/state/parent-epic`) and the same discovery fallback.
 - Pairs with `/orfi-kit-sync-branch`, which performs the rebase steps and writes the `parent-epic` state file the hook reads.
 - Installed globally under `~/.claude/hooks/`, so it applies across all projects.

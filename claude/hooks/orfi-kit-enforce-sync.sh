@@ -3,7 +3,11 @@
 # Scope   : Global (~/.claude/hooks/) — applies to all projects
 # Trigger : PreToolUse on Bash (filtered to git push on epic-derived working
 #           branches — any prefix except master/epic/*)
-# Exit non-zero = BLOCK the push
+# Platform: exports ORFI_HOOK_PLATFORM=claude|opencode|copilot. Claude and
+#           opencode share the exit-code contract below — non-zero blocks.
+#           Copilot PreToolUse takes a deny decision JSON on stdout instead of an
+#           exit code, so this hook emits that (see the block section).
+# Exit non-zero = BLOCK the push (Claude / opencode); deny JSON = BLOCK (Copilot)
 #
 # Sync order (Rule R7 extension for epic branch hierarchies):
 #   1. Rebase epic/* on origin/master
@@ -21,6 +25,22 @@
 # fallback (see README, "Hooks must not require anything the installer doesn't
 # guarantee"). Never let a missing tool be the reason enforcement stops.
 PAYLOAD="$(cat 2>/dev/null || true)"
+
+# Platform contract. Same logic everywhere; only the output encoding differs.
+# Unset = Claude's historical behavior, byte-for-byte.
+HOOK_PLATFORM="${ORFI_HOOK_PLATFORM:-claude}"
+
+# Copilot's PreToolUse payload carries the working directory at .cwd. Claude sets
+# CLAUDE_PROJECT_DIR; opencode inherits $PWD. Prefer the payload's own answer.
+PAYLOAD_CWD=""
+if [ "$HOOK_PLATFORM" = "copilot" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    PAYLOAD_CWD="$(printf '%s' "$PAYLOAD" | jq -r '.cwd // empty' 2>/dev/null || true)"
+  else
+    PAYLOAD_CWD="$(printf '%s' "$PAYLOAD" | tr -d '\n' \
+      | sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+  fi
+fi
 
 if [ -n "$PAYLOAD" ]; then
   if command -v jq >/dev/null 2>&1; then
@@ -63,7 +83,7 @@ case "$COMMAND" in
 esac
 
 # Resolve the worktree root
-WORKTREE="${CLAUDE_PROJECT_DIR:-$PWD}"
+WORKTREE="${CLAUDE_PROJECT_DIR:-${PAYLOAD_CWD:-$PWD}}"
 
 # Determine the current branch of this worktree
 CURRENT_BRANCH=$(git -C "$WORKTREE" branch --show-current 2>/dev/null)
@@ -124,7 +144,7 @@ git -C "$WORKTREE" fetch origin "$EPIC_BRANCH" --quiet 2>/dev/null || true
 
 # --- Check: epic tip must be an ancestor of feature HEAD ---
 if ! git -C "$WORKTREE" merge-base --is-ancestor "origin/$EPIC_BRANCH" HEAD 2>/dev/null; then
-  echo "BLOCKED: Working branch '$CURRENT_BRANCH' is out of sync with '$EPIC_BRANCH'.
+  REASON="Working branch '$CURRENT_BRANCH' is out of sync with '$EPIC_BRANCH'.
 
 The epic branch has been updated (rebased on master) and your working branch
 does not include those changes.
@@ -135,6 +155,22 @@ Run /orfi-kit-sync-branch to fix this:
   3. Then push with --force-with-lease
 
 Sync hierarchy: origin/master → $EPIC_BRANCH → $CURRENT_BRANCH"
+
+  if [ "$HOOK_PLATFORM" = "copilot" ]; then
+    # Copilot PreToolUse doesn't read an exit code for the decision; it reads a
+    # deny decision JSON on stdout. Deliver the same reasoning on that channel.
+    if command -v jq >/dev/null 2>&1; then
+      printf '%s' "$REASON" | jq -Rs '{permissionDecision:"deny",permissionDecisionReason:.}'
+    else
+      ESCAPED="$(printf '%s' "$REASON" \
+        | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\r//g' \
+        | awk '{ printf "%s\\n", $0 }')"
+      printf '{"permissionDecision":"deny","permissionDecisionReason":"%s"}\n' "$ESCAPED"
+    fi
+    exit 0
+  fi
+
+  printf 'BLOCKED: %s\n' "$REASON"
   exit 1
 fi
 

@@ -2,10 +2,11 @@
 
 # orfi-kit
 
-A generic, reusable bundle of **Claude Code + GitHub Copilot CLI** skills, commands, and hooks for
-AI-augmented development. It packages a team's day-to-day automation — git conventions, guardrails,
-commits, code review, session state, test runners, Jira estimation, C# XML-doc and C++ Doxygen-doc
-rules, and branch sync — and installs them flat (every item is prefixed `orfi-kit-`).
+A generic, reusable bundle of **Claude Code, OpenCode, and GitHub Copilot CLI** skills, commands, and
+hooks for AI-augmented development. It packages a team's day-to-day automation — git conventions, a
+push/brevity/contract enforcement layer, commits, code review, session state, test runners, Jira
+estimation, C# XML-doc and C++ Doxygen-doc rules, and branch sync — and installs them flat (every
+item is prefixed `orfi-kit-`).
 
 > **Related kit:** `orfi-ae-kit` (the Architect/Executor pattern) is a **separate** repo that lists
 > orfi-kit as a prerequisite. This repo is only orfi-kit.
@@ -51,18 +52,29 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-sync-branch](docs/skills/orfi-kit-sync-branch.md) | Syncs an epic-derived working branch (any prefix) through `origin/master → epic/* → working branch` before push, auto-detecting merge vs rebase. | `/orfi-kit-sync-branch` | An epic-derived working branch (any prefix, not `master`/`epic/*`); `origin` remote; `epic/*` naming |
 | [orfi-kit-sync-master](docs/skills/orfi-kit-sync-master.md) | Rebases the current branch on `origin/master`, resolves conflicts, and force-pushes with `--force-with-lease` for linear history. Aborts on `master`/`epic/*` and steers epic-derived branches to `/orfi-kit-sync-branch`. | `/orfi-kit-sync-master` | A standalone branch (no epic parent); an `origin/master`; a remote tracking branch |
 
-### Hook & extension (passive)
+### Hooks & extensions (passive)
+
+One set of **seven hook scripts** is the single source of logic; each runtime registers them through
+its own channel. Claude Code via `~/.claude/settings.json`, Copilot CLI via native hooks
+(`~/.copilot/hooks/orfi-kit.json` — [orfi-kit-copilot-hooks](docs/skills/orfi-kit-copilot-hooks.md)),
+and OpenCode via a plugin (`~/.config/opencode/plugins/orfi-kit-hooks.ts` —
+[orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md)). The scripts branch on
+`ORFI_HOOK_PLATFORM` to speak each runtime's output contract instead of each platform re-implementing
+the logic. Surface below means: **Claude** (settings.json hooks), **Copilot** (native hooks /
+extension), **OpenCode** (plugin).
 
 | Capability | What it does | Surface | Requires |
 | --- | --- | --- | --- |
-| [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from an epic-derived working branch (any prefix) until it's rebased on its parent `epic/*`; ignores `master`/`epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude Code hook | An epic-derived working branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
-| [orfi-kit-enforce-brevity-hook](docs/skills/orfi-kit-enforce-brevity-hook.md) | Stop hook that **blocks over-long replies**: counts lines in the assistant's finished reply and, if over ~25 (about one page), feeds it back with an instruction to shorten. Lifts the limit when the user asks for depth (e.g. "in full", "in detail", "elaborate"). Enforces the guardrails' brevity rule mechanically. | Claude Code hook | A Stop-hook-capable Claude Code. Uses `jq` when present and falls back to `sed`, so no external tool is required. Copilot gets a weaker next-turn equivalent — see below |
-| [orfi-kit-load-csharp-conventions-hook](docs/skills/orfi-kit-load-csharp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C# rules before a `.cs` file is written**: the nearest `.editorconfig` `[*.cs]` section (nearest-file-wins to `root = true`), the `dotnet_naming_rule`/`_symbols`/`_style` families regrouped as complete triplets, and `TreatWarningsAsErrors` / `EnforceCodeStyleInBuild` / `Nullable` from `Directory.Build.props`. States that `applicable_kinds = field` covers `const` and `static readonly`. **When the repo encodes nothing, falls back to the kit's own baseline from the code-review skill's `CONFIG.md` and enforces that as the contract** — repo config still wins whenever it exists. Read-only; never writes config into your repo. | Claude Code hook | Nothing — uses `jq` when present, falls back to `sed`. Reports plainly when the repo encodes no rules |
-| [orfi-kit-load-cpp-conventions-hook](docs/skills/orfi-kit-load-cpp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C++ rules before a source/header is written**: the nearest `.clang-format` and `.clang-tidy` `readability-identifier-naming.*` keys (paired with their values). Detects whether `compile_commands.json` exists and says so when `clang-tidy` would be inert without it. Treats "no config at all" as the normal C++ case and **falls back to the kit's own baseline from the code-review skill's `CONFIG.md`, enforced as the contract** — repo config still wins whenever it exists. Read-only; never proposes bulk renames. | Claude Code hook | Nothing — uses `jq` when present, falls back to `sed` |
-| [orfi-kit-verify-csharp-format-hook](docs/skills/orfi-kit-verify-csharp-format-hook.md) | PostToolUse hook that runs `dotnet format --verify-no-changes` scoped to the edited file right **after** it is written, reporting violations with file/line/column. Findings are delivered via `hookSpecificOutput.additionalContext` (plus a copy on stderr), not just printed to a transcript nobody reads. Advisory by default (`ORFI_CSHARP_FORMAT_BLOCKING=1` to block). | Claude Code hook | The .NET SDK and a `.csproj` above the file — says so on stderr and exits 0 when either is missing, never a silent pass |
-| [orfi-kit-verify-cpp-format-hook](docs/skills/orfi-kit-verify-cpp-format-hook.md) | PostToolUse hook that runs `clang-format --dry-run --Werror` after a C/C++ write, plus `clang-tidy` **only** when a `compile_commands.json` exists — otherwise it reports that naming is unverified rather than clean. Findings are delivered via `hookSpecificOutput.additionalContext` (plus a copy on stderr). Advisory by default (`ORFI_CPP_FORMAT_BLOCKING=1` to block). | Claude Code hook | `clang-format` / `clang-tidy` and a compilation database for the naming half; every absence is reported on stderr |
-| [orfi-kit-verify-skill-contract-hook](docs/skills/orfi-kit-verify-skill-contract-hook.md) | Stop hook that **blocks a skill's final report when a mandated step has no `tool_use` record** in the session transcript. Reads a `CONTRACT.conf` beside the skill's `SKILL.md` (shipped for both code-review skills: companion skills, tool lane, scope diff, and the `--changed` / `@{u}` / `clang-format -i` traps). Fires only when a contract is open *and* the reply is report-shaped, so mid-review turns are untouched. Satisfied by the **attempt**, not the exit code — an unavailable tool still leaves a record, so `skipped (unavailable)` stays honest after trying rather than instead of trying. Distinguishes a step never run from one the report *claims* ran. No conversational escape hatch by design; `ORFI_SKILL_CONTRACT_OFF=1` disables it. | Claude Code hook | A Stop-hook-capable Claude Code. Uses `jq` when present, falls back to `grep`/`sed`. No Copilot equivalent — that SDK has no post-response event |
-| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, **plus** an `onUserPromptSubmitted` brevity check that nudges when the previous reply ran long, **plus** the C#/C++ coding conventions — scoped to the languages actually present in the workspace — so code is written against the repo's own config instead of corrected at review time. Loads conventions but cannot verify a written file: the SDK has no per-edit event. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
+| [orfi-kit-enforce-sync-hook](docs/skills/orfi-kit-enforce-sync-hook.md) | PreToolUse/Bash hook that **blocks `git push`** from an epic-derived working branch (any prefix) until it's rebased on its parent `epic/*`; ignores `master`/`epic/*`. Pairs with `orfi-kit-sync-branch`. | Claude · Copilot · OpenCode (block) | An epic-derived working branch; `origin` remote; at least one `origin/epic/*` branch (else push is allowed) |
+| [orfi-kit-enforce-brevity-hook](docs/skills/orfi-kit-enforce-brevity-hook.md) | Stop hook that **blocks over-long replies**: counts lines in the assistant's finished reply and, if over ~25 (about one page), feeds it back with an instruction to shorten. Lifts the limit when the user asks for depth (e.g. "in full", "in detail", "elaborate"). Enforces the guardrails' brevity rule mechanically. | Claude · Copilot (block); **not OpenCode** — no Stop event | A Stop-hook-capable runtime. Uses `jq` when present, falls back to `sed`, so no external tool is required |
+| [orfi-kit-load-csharp-conventions-hook](docs/skills/orfi-kit-load-csharp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C# rules before a `.cs` file is written**: the nearest `.editorconfig` `[*.cs]` section (nearest-file-wins to `root = true`), the `dotnet_naming_rule`/`_symbols`/`_style` families regrouped as complete triplets, and `TreatWarningsAsErrors` / `EnforceCodeStyleInBuild` / `Nullable` from `Directory.Build.props`. States that `applicable_kinds = field` covers `const` and `static readonly`. **When the repo encodes nothing, falls back to the kit's own baseline from the code-review skill's `CONFIG.md` and enforces that as the contract** — repo config still wins whenever it exists. Read-only; never writes config into your repo. | Claude (PreToolUse) · Copilot (extension at `onSessionStart`) · OpenCode (chat start) | Nothing — uses `jq` when present, falls back to `sed`. Reports plainly when the repo encodes no rules |
+| [orfi-kit-load-cpp-conventions-hook](docs/skills/orfi-kit-load-cpp-conventions-hook.md) | PreToolUse hook that **loads the repo's own C++ rules before a source/header is written**: the nearest `.clang-format` and `.clang-tidy` `readability-identifier-naming.*` keys (paired with their values). Detects whether `compile_commands.json` exists and says so when `clang-tidy` would be inert without it. Treats "no config at all" as the normal C++ case and **falls back to the kit's own baseline from the code-review skill's `CONFIG.md`, enforced as the contract** — repo config still wins whenever it exists. Read-only; never proposes bulk renames. | Claude (PreToolUse) · Copilot (extension at `onSessionStart`) · OpenCode (chat start) | Nothing — uses `jq` when present, falls back to `sed` |
+| [orfi-kit-verify-csharp-format-hook](docs/skills/orfi-kit-verify-csharp-format-hook.md) | PostToolUse hook that runs `dotnet format --verify-no-changes` scoped to the edited file right **after** it is written, reporting violations with file/line/column. Findings are delivered to the model (Claude `additionalContext`, Copilot `additionalContext`, OpenCode merged tool output) plus a copy on stderr — not just printed to a transcript nobody reads. Advisory by default (`ORFI_CSHARP_FORMAT_BLOCKING=1` to block; the other platforms have no block channel). | Claude · Copilot · OpenCode (advisory) | The .NET SDK and a `.csproj` above the file — says so on stderr and exits 0 when either is missing, never a silent pass |
+| [orfi-kit-verify-cpp-format-hook](docs/skills/orfi-kit-verify-cpp-format-hook.md) | PostToolUse hook that runs `clang-format --dry-run --Werror` after a C/C++ write, plus `clang-tidy` **only** when a `compile_commands.json` exists — otherwise it reports that naming is unverified rather than clean. Findings delivered to the model (Claude `additionalContext`, Copilot `additionalContext`, OpenCode merged tool output) plus a copy on stderr. Advisory by default. | Claude · Copilot · OpenCode (advisory) | `clang-format` / `clang-tidy` and a compilation database for the naming half; every absence is reported on stderr |
+| [orfi-kit-verify-skill-contract-hook](docs/skills/orfi-kit-verify-skill-contract-hook.md) | Stop hook that **blocks a skill's final report when a mandated step has no `tool_use` record** in the session transcript. Reads a `CONTRACT.conf` beside the skill's `SKILL.md` (shipped for both code-review skills: companion skills, tool lane, scope diff, and the `--changed` / `@{u}` / `clang-format -i` traps). Fires only when a contract is open *and* the reply is report-shaped, so mid-review turns are untouched. Satisfied by the **attempt**, not the exit code — an unavailable tool still leaves a record, so `skipped (unavailable)` stays honest after trying rather than instead of trying. Distinguishes a step never run from one the report *claims* ran. No conversational escape hatch by design; `ORFI_SKILL_CONTRACT_OFF=1` disables it. | Claude · Copilot (block); **not OpenCode** — no Stop event | A Stop-hook-capable runtime. Uses `jq` when present, falls back to `grep`/`sed`. Verifies the transcript is Claude-shaped before enforcing (honesty guard) |
+| [orfi-kit-guardrails-extension](docs/skills/orfi-kit-guardrails-extension.md) | Copilot SDK session extension that injects the guardrails as always-active context, the C#/C++ coding conventions — scoped to the languages actually present in the workspace — and an `onUserPromptSubmitted` brevity nudge as fallback. Native Copilot hooks (above) do the blocking; the extension loads the context. Installs to `~/.copilot/extensions/orfi-kit-guardrails/`. | Copilot CLI extension | The `@github/copilot-sdk` package; Copilot CLI |
+| [orfi-kit-copilot-hooks](docs/skills/orfi-kit-copilot-hooks.md) | `copilot/hooks/orfi-kit.json` — registers the seven shared hook scripts as Copilot **native hooks** (`PreToolUse` sync, `PostToolUse` verifiers, `Stop` brevity + skill-contract) with `ORFI_HOOK_PLATFORM=copilot` payload contracts. Installs to `~/.copilot/hooks/`. | Copilot CLI native hooks | The seven scripts in `~/.claude/hooks/`; Git Bash on Windows |
+| [orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md) | `opencode/plugins/orfi-kit-hooks.ts` — runs the same scripts for OpenCode: sync gate (`tool.execute.before`), format verifiers (`tool.execute.after`), conventions at chat start (`chat.system.transform`). Installs to `~/.config/opencode/plugins/`. No Stop event → brevity + skill-contract are not ported (honest gap). | OpenCode plugin | The seven scripts; Git Bash on Windows |
 
 ## Install
 
@@ -83,9 +95,9 @@ runtime(s) you want (Claude Code, OpenCode, GitHub Copilot CLI — one or severa
     ./install.ps1 -Uninstall  # remove an existing install
     ./install.ps1 -Help       # usage
 
-### Hook wiring (Claude Code)
+### Hook wiring
 
-When you install for Claude Code, the installer places seven hooks in `~/.claude/hooks/` and wires
+**Claude Code.** The installer places the seven hook scripts in `~/.claude/hooks/` and wires
 each into `~/.claude/settings.json`:
 
 - `orfi-kit-enforce-sync.sh` → a **PreToolUse/Bash** entry (blocks unsynced `git push`).
@@ -110,10 +122,31 @@ re-running the installer never duplicates an entry, and a `settings.json.bak` sn
 before any change. A one-time `settings.json.orfi-orig` also preserves what existed *before*
 orfi-kit ever touched the file — on a re-install, `settings.json` already contains our entries, so
 the rolling `.bak` alone would lose your true original. Decline the sync-hook prompt to get manual
-wiring instructions instead. Uninstall removes all six hook files and their settings entries.
+wiring instructions instead. Uninstall removes all seven hook files and their settings entries.
 
 > Auto-wiring requires `jq` (bash) — without it you'll get manual instructions. PowerShell uses
 > built-in JSON support.
+
+**Copilot CLI.** The same seven scripts become native hooks by placing `copilot/hooks/orfi-kit.json`
+in `~/.copilot/hooks/` (see [orfi-kit-copilot-hooks](docs/skills/orfi-kit-copilot-hooks.md)). Five
+events are registered: `PreToolUse`/`Bash` (sync), `PostToolUse`/`Write|Edit|MultiEdit` (both format
+verifiers), and `Stop` (brevity + skill-contract). The two loaders are *not* registered there — the
+guardrails extension injects the conventions at `onSessionStart`. Registered scripts run with
+`ORFI_HOOK_PLATFORM=copilot`, so verdicts are Copilot JSON (`deny` / `block` / `additionalContext`)
+rather than exit codes, and command-hook timeouts are fail-open.
+
+**OpenCode.** The installer places `opencode/plugins/orfi-kit-hooks.ts` in
+`~/.config/opencode/plugins/` (see [orfi-kit-opencode-plugin](docs/skills/orfi-kit-opencode-plugin.md)).
+The plugin shells to the same scripts with `ORFI_HOOK_PLATFORM=opencode`:
+`tool.execute.before` gates `git push`, `tool.execute.after` merges verifier findings into the tool
+result, and `chat.system.transform` injects the conventions at chat start. OpenCode has **no Stop
+event**, so brevity and skill-contract are not ported there — an honest gap, not a fake gate.
+
+| | Sync gate | Load conventions | Verify a write | Brevity gate | Skill-contract gate |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | Yes — `PreToolUse/Bash` | Yes — 2 `PreToolUse` loaders | Yes — 2 `PostToolUse` | Yes — `Stop` | Yes — `Stop` |
+| Copilot CLI | Yes — native `PreToolUse` | Yes — extension at `onSessionStart` | Yes — 2 native `PostToolUse` | Yes — native `Stop` | Yes — native `Stop` |
+| OpenCode | Yes — plugin `tool.execute.before` | Yes — plugin at chat start (root probe) | Yes — plugin `tool.execute.after` (advisory) | **No — no Stop event** | **No — no Stop event** |
 
 ### Doc-checker scripts (all runtimes)
 
@@ -158,42 +191,34 @@ success. The brevity hook was silently inert on any machine without `jq` until t
 PowerShell installs were affected worst, because install-time wiring succeeds there without `jq`
 and nothing warned that the hook still needed it at runtime.
 
-### Copilot extension
+### Copilot enforcement
 
-When you install for GitHub Copilot CLI, the guardrails extension is copied to
-`~/.copilot/extensions/orfi-kit-guardrails/` (the path the Copilot CLI loads user extensions from).
+Installing for GitHub Copilot CLI puts **two** surfaces in place that work together:
 
-**The two brevity guardrails are not equivalent, and the difference matters.** The Copilot SDK has
-no post-response event, so the extension cannot stop an over-long reply — it measures the previous
-turn and injects a correction on the next prompt. The reply you didn't want has already been sent.
-The Claude Code hook blocks instead: it exits non-zero and the reply must be rewritten before it
-reaches you. So Copilot's version is a nudge and Claude's is a gate; expect the Copilot side to let
-long replies through and only tighten over a conversation.
+- **The SDK extension** — copied to `~/.copilot/extensions/orfi-kit-guardrails/`. It injects the
+  guardrails and the C#/C++ conventions at `onSessionStart` (scoped to the languages actually
+  present), and keeps an `onUserPromptSubmitted` nudge that corrects an over-long **previous** reply.
+  The SDK itself has no post-response event, so the nudge lands a turn late — a nudge, not a gate.
+- **The native hooks** — `~/.copilot/hooks/orfi-kit.json`. Copilot CLI's hook events give the kit
+  exactly the events the SDK extension lacks. The same seven scripts that run on Claude Code are
+  registered here and emit Copilot's JSON contracts under `ORFI_HOOK_PLATFORM=copilot`:
+  `PreToolUse`/`Bash` blocks an out-of-sync `git push` (deny), the two `Stop` hooks block over-long
+  replies and skill reports without record (block JSON, honouring `stop_hook_active` and Copilot's
+  8-consecutive-blocks guard), and two `PostToolUse`/`Write|Edit|MultiEdit` hooks verify a written
+  file (advisory `additionalContext`).
 
-Both sides keep their own copy of the phrase list that lifts the limit — a regex in
-`extension.mjs`, a `case` in the Stop hook. They have drifted before (the extension was missing
-"elaborate" and "show more"), so change them together.
+So the old "Claude gates, Copilot nudges" asymmetry is **gone for the events Copilot CLI supports**:
+sync, brevity, skill-contract, and format verification all gate or check on both platforms. The
+remaining honest gap is OpenCode, which has no Stop event — see the matrix in **Hook wiring**.
 
-**The convention guardrails are asymmetric for the same reason, and it is a platform limit, not an
-oversight.** The Copilot SDK exposes only `onSessionStart` and `onUserPromptSubmitted`. It has no
-per-edit event and no post-response event, so:
-
-| | Load conventions before a write | Verify the file after a write |
-| --- | --- | --- |
-| Claude Code | Yes — 2 `PreToolUse` hooks | Yes — 2 `PostToolUse` hooks |
-| Copilot CLI | Yes — injected at `onSessionStart` | **No — the SDK has no per-edit event** |
-
-So Copilot gets the rules up front (which is the half that actually changes what gets written) but
-nothing checks the result; on Claude Code the loader and the verifier both run. There are **six**
-convention artifacts, not eight, and the two missing ones cannot be written until the SDK grows an
-edit event. Do not "fix" this by faking a verifier on the Copilot side — a check that runs a turn
-late, against a file that may have changed again, is worse than an honest gap.
+Both sides still keep their own copy of the phrase list that lifts the brevity limit — a regex in
+`extension.mjs`, a `case` in the Stop hook. They have drifted before (the extension was once missing
+"elaborate" and "show more"), so **change them together.**
 
 The convention rule text is likewise duplicated: prose in `extension.mjs`, shell in the two
 `orfi-kit-load-*-conventions.sh` hooks. Same reason as the brevity list (different platforms, no
-shared code) and the same instruction — **change them together.**
-
-Both sides defer to the same authority, in this order:
+shared code) and the same instruction — **change them together.** And both sides defer to the same
+authority, in this order:
 
 1. **The repo under review always wins.** If it has an `.editorconfig`, `.clang-format`, or
    `.clang-tidy`, that is the contract and nothing overrides it.
@@ -212,8 +237,9 @@ they will never write it for you.
 
 Run the same installer with `--uninstall` (bash) or `-Uninstall` (PowerShell) and **select the same
 runtime(s) you installed for** — it only cleans what you select, so anything else is left behind.
-Skills, commands, all six hook files + their settings entries, the six `scripts/` files, and the
-Copilot extension are removed. The scripts directory is deleted only if uninstall emptied it, so a
+Skills, commands, all seven hook files + their `settings.json` entries, the Copilot hooks registration
+(`~/.copilot/hooks/orfi-kit.json`), the OpenCode plugin, the six `scripts/` files, and the Copilot
+extension are removed. The scripts directory is deleted only if uninstall emptied it, so a
 directory holding scripts of your own survives.
 
 Two things uninstall deliberately does **not** undo: `core.hooksPath` in any repo where you ran

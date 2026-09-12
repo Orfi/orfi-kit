@@ -19,8 +19,8 @@ Passive — it runs automatically at the end of every assistant turn. You don't 
 ## Prerequisites
 
 - `jq` — the hook parses the JSON payload and the JSONL transcript with it. Without `jq` it cannot read the payload safely and exits 0 (fails open, never blocks).
-- A Claude Code build that supports `Stop` hooks.
-- Copilot CLI has no `Stop` equivalent; the guardrails extension covers it with a next-turn nudge instead (see Notes).
+- A Stop-hook-capable runtime (Claude Code, or Copilot CLI with the kit's native hooks — see Notes).
+  OpenCode has no Stop event and the plugin does not port this hook.
 
 ## Behavior / rules
 
@@ -74,5 +74,10 @@ The installer copies the hook to `~/.claude/hooks/orfi-kit-enforce-brevity.sh` a
 ## Notes
 
 - Enforces the brevity rule in the `orfi-kit-guardrails` skill, which points back at this hook and tells the assistant to treat it as a hard rule.
-- The Copilot CLI counterpart is the `orfi-kit-guardrails-extension`, whose `onUserPromptSubmitted` handler measures the *previous* assistant turn against the same 25-line limit and injects a nudge. It's a next-turn correction rather than a block — Copilot has no Stop-equivalent to intercept a reply before it lands.
+- On Copilot CLI the same script is registered as a **native `Stop` hook** by
+  `~/.copilot/hooks/orfi-kit.json` and blocks over-long replies just as it does on Claude Code
+  (emitting a block-decision JSON instead of a non-zero exit; Copilot bounds the loop with its own
+  8-consecutive-blocks guard). The `orfi-kit-guardrails-extension`'s next-turn nudge remains as the
+  fallback for sessions without native hooks. OpenCode has no Stop event, so this hook is not ported
+  to the plugin.
 - Installed globally under `~/.claude/hooks/`, so it applies across all projects.

@@ -3,8 +3,11 @@
 # orfi-kit installer (PowerShell) — the cross-platform twin of install.sh.
 # Runs on Windows PowerShell 5+, and pwsh on Windows / macOS / Linux.
 #
-# orfi-kit is skills/markdown plus seven Claude Code hooks and one Copilot
-# extension. This script is install-time plumbing only.
+# orfi-kit is skills/markdown, seven enforcement hooks, an OpenCode plugin, and a
+# Copilot extension. The SAME seven bash hooks power all three runtimes: Claude Code
+# via ~/.claude/settings.json, GitHub Copilot CLI via a hooks registration file
+# (~/.copilot/hooks/orfi-kit.json), and OpenCode via a plugin that shells to the
+# same scripts. This script is install-time plumbing only.
 #
 # Usage:
 #   ./install.ps1                 interactive: asks which runtime(s) to install for
@@ -14,7 +17,10 @@
 #
 # Claude Code + OpenCode share one skill source (claude/skills) and the 10
 # command files. Copilot uses its own source (copilot/skills) and its own home
-# (~/.copilot/skills). settings.json file-mode is only meaningful on POSIX.
+# (~/.copilot/skills). Hooks (bash scripts) get ONE shared home, ~/.claude/hooks,
+# that serves Claude Code's settings.json, the Copilot hooks JSON, and the
+# OpenCode plugin. On Windows the OpenCode plugin and Copilot hooks invoke the
+# scripts through Git Bash, so a Git Bash installation is required for them.
 
 [CmdletBinding()]
 param(
@@ -35,6 +41,8 @@ $HookSrc          = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-sync.sh'
 $BrevitySrc       = Join-Path $RepoDir 'claude/hooks/orfi-kit-enforce-brevity.sh'
 $ContractSrc      = Join-Path $RepoDir 'claude/hooks/orfi-kit-verify-skill-contract.sh'
 $ExtSrc           = Join-Path $RepoDir 'copilot/extensions/orfi-kit-guardrails'
+$CopilotHooksSrc  = Join-Path $RepoDir 'copilot/hooks'          # Copilot CLI hooks registration (JSON)
+$OpencodePluginsSrc = Join-Path $RepoDir 'opencode/plugins'     # OpenCode hook plugin (TypeScript)
 $ScriptsSrc       = Join-Path $RepoDir 'scripts'
 
 $Home_     = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
@@ -51,6 +59,8 @@ $CopilotExts    = Join-Path $Home_ '.copilot/extensions'   # verified from Copil
 $ClaudeScripts   = Join-Path $Home_ '.claude/scripts'
 $OpencodeScripts = Join-Path $XdgConfig 'opencode/scripts'
 $CopilotScripts  = Join-Path $Home_ '.copilot/scripts'
+$CopilotHooks    = Join-Path $Home_ '.copilot/hooks'          # Copilot CLI hooks registration
+$OpencodePlugins = Join-Path $XdgConfig 'opencode/plugins'    # OpenCode plugin transport
 
 # The doc-presence checkers + their git-hook wiring (scripts/). Both language
 # pairs install for every runtime, since a repo may be C#, C++, or both.
@@ -73,19 +83,23 @@ $HookCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"'
 $BrevityDest = Join-Path $ClaudeHooks 'orfi-kit-enforce-brevity.sh'
 $BrevityCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-enforce-brevity.sh"'
 
-# Skill-contract Stop hook (Claude Code only). Blocks a skill's final report when a
-# step the skill mandates has no tool_use record in the session transcript.
-# Contracts live in CONTRACT.conf beside each SKILL.md and ship with the skill
-# directory, so rules and prose cannot drift apart. No Copilot equivalent: that SDK
-# has no post-response event to hang a verifier on.
+# Skill-contract Stop hook. Blocks a skill's final report when a step the skill
+# mandates has no tool_use record in the session transcript. Contracts live in
+# CONTRACT.conf beside each SKILL.md and ship with the skill directory, so rules
+# and prose cannot drift apart.
+#
+# Wired for Claude Code via settings.json Stop AND for Copilot via the Stop event
+# in copilot/hooks/orfi-kit.json (transcript_path from the Stop payload; Copilot
+# forces a correction turn with the reason).
 $ContractDest = Join-Path $ClaudeHooks 'orfi-kit-verify-skill-contract.sh'
 $ContractCmd  = 'bash "$HOME/.claude/hooks/orfi-kit-verify-skill-contract.sh"'
 
-# Convention hooks (Claude Code only). Two PreToolUse loaders that surface the
-# repo's own rules BEFORE a file is written, and two PostToolUse verifiers that
-# check the file after. The verifiers have no Copilot equivalent: that SDK exposes
-# only onSessionStart / onUserPromptSubmitted, so it can load conventions but
-# cannot verify an edit. See copilot/extensions/orfi-kit-guardrails/extension.mjs.
+# Convention hooks: two PreToolUse loaders that surface the repo's own rules
+# BEFORE a file is written, and two PostToolUse verifiers that check the file
+# after. Claude Code wires all four through settings.json; Copilot wires the
+# verifiers (advisory — PostToolUse has no block semantics) through
+# orfi-kit.json, and extension.mjs still loads conventions at session start as a
+# first pass.
 #
 # Matchers are TOOL names (Write|Edit|MultiEdit), never file globs — the *.cs and
 # C++ extension filtering happens inside each hook, from .tool_input.file_path.
@@ -118,6 +132,20 @@ $CommandNames = @(
   'orfi-kit-init','orfi-kit-load-state','orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
   'orfi-kit-set-helper-files-root','orfi-kit-standup','orfi-kit-sync-branch','orfi-kit-sync-master'
+)
+
+# The 7 shared enforcement hooks. All three runtimes shell to these scripts:
+# Claude Code via settings.json, Copilot via copilot/hooks/orfi-kit.json, OpenCode
+# via the plugin. Used to guarantee the scripts exist under ~/.claude/hooks even
+# when Claude Code is not part of the install.
+$AllHookNames = @(
+  'orfi-kit-enforce-sync.sh',
+  'orfi-kit-enforce-brevity.sh',
+  'orfi-kit-verify-skill-contract.sh',
+  'orfi-kit-load-csharp-conventions.sh',
+  'orfi-kit-load-cpp-conventions.sh',
+  'orfi-kit-verify-csharp-format.sh',
+  'orfi-kit-verify-cpp-format.sh'
 )
 
 # --- helpers -----------------------------------------------------------------
@@ -474,6 +502,39 @@ function Remove-CopilotExtension {
     if (Test-Path $p) { Remove-Item -Recurse -Force $p; Say "  removed $p" }
 }
 
+# --- Shared hooks for the OpenCode plugin and the Copilot hooks registration ---
+# ~/.claude/hooks is the ONE home for the seven scripts regardless of runtime.
+# Claude Code's Wire-* functions above place them; these helpers guarantee they
+# exist for the OpenCode plugin and the Copilot hooks JSON when Claude Code is not
+# part of the install.
+
+function Install-SharedHooks {
+    foreach ($name in $AllHookNames) {
+        Place (Join-Path $RepoDir "claude/hooks/$name") (Join-Path $ClaudeHooks $name)
+    }
+}
+
+function Remove-SharedHooks {
+    foreach ($name in $AllHookNames) {
+        $p = Join-Path $ClaudeHooks $name
+        if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+    }
+}
+
+function Install-CopilotHooks { Place (Join-Path $CopilotHooksSrc 'orfi-kit.json') (Join-Path $CopilotHooks 'orfi-kit.json') }
+
+function Remove-CopilotHooks {
+    $p = Join-Path $CopilotHooks 'orfi-kit.json'
+    if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+}
+
+function Install-OpencodePlugin { Place (Join-Path $OpencodePluginsSrc 'orfi-kit-hooks.ts') (Join-Path $OpencodePlugins 'orfi-kit-hooks.ts') }
+
+function Remove-OpencodePlugin {
+    $p = Join-Path $OpencodePlugins 'orfi-kit-hooks.ts'
+    if (Test-Path $p) { Remove-Item -Force $p; Say "  removed $p" }
+}
+
 # --- arg parsing -------------------------------------------------------------
 
 if ($Help) { Show-Usage }
@@ -507,8 +568,11 @@ if ($Uninstall) {
     Say ''
     Say 'Uninstalling orfi-kit...'
     if ($WantCC) { Remove-ClaudeSkillsFrom $ClaudeSkills; Remove-CommandsFrom $ClaudeCmds; Remove-ScriptsFrom $ClaudeScripts; Unwire-Hook; Unwire-BrevityHook; Unwire-ConventionHooks; Unwire-ContractHook }
-    if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds; Remove-ScriptsFrom $OpencodeScripts }
-    if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension; Remove-ScriptsFrom $CopilotScripts }
+    if ($WantOC) { Remove-ClaudeSkillsFrom $OpencodeSkills; Remove-CommandsFrom $OpencodeCmds; Remove-ScriptsFrom $OpencodeScripts; Remove-OpencodePlugin }
+    if ($WantCP) { Remove-CopilotSkills; Remove-CopilotExtension; Remove-CopilotHooks; Remove-ScriptsFrom $CopilotScripts }
+    # Shared scripts in ~/.claude/hooks were placed here only when Claude Code was
+    # not part of the install; Claude's own uninstall already removes them above.
+    if ((-not $WantCC) -and ($WantOC -or $WantCP)) { Remove-SharedHooks }
     Say 'Done.'
     exit 0
 }
@@ -567,7 +631,23 @@ if ($WantCC) {
     Wire-ContractHook
 }
 
-# --- Copilot CLI + extension -------------------------------------------------
+# The seven scripts must be under ~/.claude/hooks for the OpenCode plugin and the
+# Copilot hooks JSON. Claude Code placed them above; any other runtime that was
+# selected ensures they exist.
+if ((-not $WantCC) -and ($WantOC -or $WantCP)) {
+    Say ''
+    Say 'Installing shared enforcement hooks to ~/.claude/hooks (used by the Copilot'
+    Say 'hooks registration and the OpenCode plugin):'
+    Install-SharedHooks
+}
+
+if ($WantOC) {
+    Say ''
+    Say 'Installing OpenCode plugin (orfi-kit-hooks.ts):'
+    Install-OpencodePlugin
+}
+
+# --- Copilot CLI + extension + hooks -----------------------------------------
 
 if ($WantCP) {
     Say ''
@@ -575,6 +655,8 @@ if ($WantCP) {
     Install-CopilotSkills
     Say 'Installing Copilot guardrails extension to ~/.copilot/extensions:'
     Install-CopilotExtension
+    Say 'Installing Copilot hooks registration to ~/.copilot/hooks:'
+    Install-CopilotHooks
 }
 
 Say ''

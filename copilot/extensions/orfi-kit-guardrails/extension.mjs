@@ -24,13 +24,13 @@ BREVITY: Keep replies under ~25 lines (about one screen) by default. Give the an
 // written blind to the repo's own config and fixed afterwards — or shipped and
 // caught by CI. Injecting them up front moves the rules to WRITE time.
 //
-// PLATFORM LIMIT — do not "fix" this by adding a verifier here. The Copilot SDK
-// exposes only onSessionStart and onUserPromptSubmitted: there is no per-edit
-// event and no post-response event, so this side can LOAD conventions but cannot
-// VERIFY a file after it is written. Claude Code gets two extra PostToolUse
-// hooks (orfi-kit-verify-{csharp,cpp}-format.sh) that have no equivalent here.
-// This is the same asymmetry already documented above for brevity: Claude gates,
-// Copilot nudges.
+// WHERE THE GATING LIVES: the Copilot SDK exposes only onSessionStart and
+// onUserPromptSubmitted, so this extension LOADS conventions but cannot VERIFY a
+// written file or block a reply. Those capabilities run as Copilot NATIVE HOOKS
+// instead (copilot/hooks/orfi-kit.json, installed to ~/.copilot/hooks/), which
+// register the shared scripts orfi-kit-verify-{csharp,cpp}-format.sh as
+// PostToolUse and orfi-kit-enforce-brevity.sh / verify-skill-contract.sh as
+// Stop. Keep the rule text below in step with the Claude hooks and those scripts.
 //
 // AUTHORITY, in order: (1) the repo under review always wins; (2) failing that,
 // the kit's baseline in the code-review skills' CONFIG.md is the contract;
@@ -113,10 +113,10 @@ async function detectConventions(cwd) {
     return blocks;
 }
 
-// Soft brevity limit (lines) for the previous assistant turn. The Copilot SDK
-// has no post-response Stop event, so we measure on the NEXT prompt and inject a
-// correction — a turn later than Claude Code's blocking Stop hook, but it still
-// keeps replies short over a conversation.
+// Soft brevity limit (lines) for the previous assistant turn. With the native
+// Copilot Stop hooks installed (~/.copilot/hooks/orfi-kit.json), over-long
+// replies are BLOCKED at Stop; this nudge remains as the fallback when native
+// hooks are not present and still keeps replies short over a conversation.
 const BREVITY_MAX_LINES = 25;
 // Keep this list in step with the same list in claude/hooks/orfi-kit-enforce-brevity.sh.
 // The two are maintained separately because they run on different platforms, so they
