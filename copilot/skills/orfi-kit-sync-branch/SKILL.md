@@ -1,8 +1,6 @@
 ---
 name: orfi-kit-sync-branch
 description: Sync feature branch with parent epic and master before push.
-license: Proprietary
-disable-model-invocation: true
 ---
 
 # orfi-kit-sync-branch (Copilot version)

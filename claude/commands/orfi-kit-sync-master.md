@@ -1,7 +1,6 @@
 ---
 name: orfi-kit-sync-master
 description: Commit, rebase on master, and push current branch.
-disable-model-invocation: true
 ---
 
 # Sync Master Workflow

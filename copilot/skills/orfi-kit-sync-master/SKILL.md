@@ -1,7 +1,6 @@
 ---
 name: orfi-kit-sync-master
 description: Commit local changes, rebase on origin/master, and push safely.
-disable-model-invocation: true
 ---
 
 # Sync Master Workflow (Copilot version)

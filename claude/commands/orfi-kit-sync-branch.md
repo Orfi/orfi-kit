@@ -1,7 +1,6 @@
 ---
 name: orfi-kit-sync-branch
 description: Sync a feature branch with its parent epic and master before pushing. Detects whether the epic uses merge or rebase strategy and applies it correctly.
-disable-model-invocation: true
 ---
 
 
