@@ -75,9 +75,8 @@ Copy **exactly** these files/directories. Nothing more, nothing less.
 
 ### 3.1 Claude Code — commands (from `claude-tools/commands/`)
 
-Command files (installed to the runtime) — **14 files**:
+Command files (installed to the runtime) — **13 files**:
 
-- `orfi-kit-cleanup-state.md`
 - `orfi-kit-code-review.md`
 - `orfi-kit-commit.md`
 - `orfi-kit-enforce-guardrails.md`
@@ -96,7 +95,7 @@ Companion documentation (repo docs — **NOT installed to the runtime**):
 
 - Per-capability docs live in `docs/skills/` (one `.md` per skill / command / hook / extension),
   not alongside the command files. The sync-branch deeper docs are
-  `docs/skills/orfi-kit-sync-branch.md`. The installer copies only the 14 command files into
+  `docs/skills/orfi-kit-sync-branch.md`. The installer copies only the 13 command files into
   `~/.claude/commands/`; it never copies `docs/`.
 
 ### 3.2 Claude Code — skills (from `claude-tools/skills/`)
@@ -147,11 +146,10 @@ interface and plain stdout is ignored, so unwired beats a guardrail that always 
 
 ### 3.4 Copilot — skills (from `copilot-tools/skills/`)
 
-**21 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
-command**, so the Claude *commands* become Copilot *skills*, giving 7 Claude skills + 14 Claude
-commands = 21 Copilot skills.)
+**20 skill directories** — full parity with the Claude side. (In Copilot a **skill IS its slash
+command**, so the Claude *commands* become Copilot *skills*, giving 7 Claude skills + 13 Claude
+commands = 20 Copilot skills.)
 
-- `orfi-kit-cleanup-state/`
 - `orfi-kit-code-review/`
 - `orfi-kit-commit/`
 - `orfi-kit-cpp-code-review/`
@@ -197,7 +195,7 @@ Stop event → brevity and skill-contract are **not** ported (documented gap, no
 
 ### 3.5.3 Codex — skills (from `codex/skills/`)
 
-**21 skill directories** — full parity with the Copilot side, adapted from `copilot/skills`. Codex
+**20 skill directories** — full parity with the Copilot side, adapted from `copilot/skills`. Codex
 skills use `name` + `description` frontmatter (unknown keys are ignored), so the Copilot-only fields
 (`user-invocable`, `disable-model-invocation`) are dropped. Installed to `~/.agents/skills` (the
 Codex user-scope skill home). The two sync skills ship an `agents/openai.yaml` declaring
@@ -235,18 +233,18 @@ Codex user-scope skill home). The two sync skills ship an `agents/openai.yaml` d
 ```
 orfi-kit/
   claude/
-    commands/   <- the 14 orfi-kit-*.md command files
+    commands/   <- the 13 orfi-kit-*.md command files
     skills/     <- the 7 orfi-kit-* Claude skill dirs
     hooks/      <- the 7 orfi-kit-*.sh shared hook scripts (sync, brevity,
                    skill-contract, 2 convention loaders, 2 format verifiers)
   copilot/
-    skills/     <- the 21 orfi-kit-* Copilot skill dirs (Copilot's own copies)
+    skills/     <- the 20 orfi-kit-* Copilot skill dirs (Copilot's own copies)
     extensions/ <- orfi-kit-guardrails/  (extension.mjs)
     hooks/      <- orfi-kit.json  (native Copilot hook registration)
   opencode/
     plugins/    <- orfi-kit-hooks.ts  (OpenCode plugin; shells to the same scripts)
   codex/
-    skills/     <- the 21 orfi-kit-* Codex skill dirs (adapted from copilot/skills)
+    skills/     <- the 20 orfi-kit-* Codex skill dirs (adapted from copilot/skills)
     hooks.json  <- native Codex hook registration (installed to ~/.codex/hooks.json)
     AGENTS.md   <- global rules for Codex (installed to ~/.codex/AGENTS.md)
   docs/
@@ -333,18 +331,18 @@ skills get **exactly ONE home per machine**:
 
 - **Claude Code + OpenCode share the SAME skill source** → `claude/skills` (the 7 Claude skill
   dirs). They also share the OpenCode conflict rule above.
-- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 21 skill dirs) and its own
+- **Copilot uses its OWN source** → `copilot/skills` (adapted wording, 20 skill dirs) and its own
   home `~/.copilot/skills`. Independent: **no command file** (the skill is its own slash command).
-- **Codex uses its OWN source** → `codex/skills` (the 21 Copilot dirs adapted again: `name` +
+- **Codex uses its OWN source** → `codex/skills` (the 20 Copilot dirs adapted again: `name` +
   `description` frontmatter only, Copilot-only fields dropped) and its own home `~/.agents/skills`
   (the Codex user-scope skill home).
 
 ### 5.6 Commands (Claude Code / OpenCode only)
 
-Copy the **14** `orfi-kit-*.md` command files into the runtime's `commands/` dir
+Copy the **13** `orfi-kit-*.md` command files into the runtime's `commands/` dir
 (`~/.claude/commands/` and/or `~/.config/opencode/commands/`).
 
-> Make sure your copy loop targets the 14 command files explicitly. Per-capability docs live in
+> Make sure your copy loop targets the 13 command files explicitly. Per-capability docs live in
 > `docs/skills/` and are never copied to a runtime.
 
 ### 5.7 NEW for this kit (not in trackbed) — install the HOOKS, the Copilot native-hooks registration, the Codex hooks.json + AGENTS.md, the OpenCode plugin, and the EXTENSION
@@ -458,11 +456,11 @@ e.g. `/orfi-kit-commit` or `/orfi-kit-code-review`.
 
 ### 5.9 The SKILLS array
 
-The array the installer iterates over is the **21 `orfi-kit-*` skill names** (§3.4). Note that the
-Claude side ships only 7 of these as *skills* and the other 14 as *commands* — structure the
-installer so the Claude path installs 7 skills + 14 commands, while the Copilot path installs all
-21 as skills. Keep a `SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS`
-array for the 14 Claude command files.
+The array the installer iterates over is the **20 `orfi-kit-*` skill names** (§3.4). Note that the
+Claude side ships only 7 of these as *skills* and the other 13 as *commands* — structure the
+installer so the Claude path installs 7 skills + 13 commands, while the Copilot path installs all
+20 as skills. Keep a `SKILLS` array for the Copilot/Claude-skills overlap and a separate `COMMANDS`
+array for the 13 Claude command files.
 
 ---
 
@@ -502,11 +500,11 @@ The repo `README.md` must:
 The implementer can verify completion against this list:
 
 - [ ] **All skills present on all runtimes** — `claude/skills` has the 7 Claude skill dirs;
-      `copilot/skills` has all 21 Copilot skill dirs; `codex/skills` has all 21 Codex skill dirs
+      `copilot/skills` has all 20 Copilot skill dirs; `codex/skills` has all 20 Codex skill dirs
       (frontmatter reduced to `name` + `description`; the sync skills carry `agents/openai.yaml`
       with `policy.allow_implicit_invocation: false`). `orfi-kit-csharp-code-review` ships its
       companion `CONFIG.md` alongside `SKILL.md` in all of them.
-- [ ] **14 Claude command files** present in `claude/commands/`. Per-capability docs live in
+- [ ] **13 Claude command files** present in `claude/commands/`. Per-capability docs live in
       `docs/skills/` (one `.md` per capability) and are never installed to a runtime.
 - [ ] **`orfi-kit-csharp-code-review` behaves as specified** — it is a *skill directory* rather than a
       command file specifically so it can ship `CONFIG.md`; verify that companion file installs

@@ -125,7 +125,7 @@ $ConvHookNames = $ConvPreHooks + $ConvPostHooks
 $ClaudeSkillNames = @('orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-scrum-poker','orfi-kit-xml-docs','orfi-kit-doxygen-docs','orfi-kit-csharp-code-review','orfi-kit-cpp-code-review')
 
 $CopilotSkillNames = @(
-  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
+  'orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
   'orfi-kit-csharp-code-review','orfi-kit-enforce-guardrails',
   'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-init','orfi-kit-load-state',
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
@@ -134,9 +134,9 @@ $CopilotSkillNames = @(
   'orfi-kit-sync-branch','orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
-# The 21 Codex skill dirs (same parity set as Copilot, adapted for Codex).
+# The 20 Codex skill dirs (same parity set as Copilot, adapted for Codex).
 $CodexSkillNames = @(
-  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
+  'orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
   'orfi-kit-csharp-code-review','orfi-kit-enforce-guardrails',
   'orfi-kit-git-conventions','orfi-kit-guardrails','orfi-kit-init','orfi-kit-load-state',
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
@@ -145,9 +145,9 @@ $CodexSkillNames = @(
   'orfi-kit-sync-branch','orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
-# 14 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
+# 13 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
 $CommandNames = @(
-  'orfi-kit-cleanup-state','orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
+  'orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
   'orfi-kit-init','orfi-kit-load-state','orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
   'orfi-kit-set-helper-files-root','orfi-kit-standup','orfi-kit-sync-branch','orfi-kit-sync-master'

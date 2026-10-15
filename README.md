@@ -44,7 +44,6 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-enforce-guardrails](docs/skills/orfi-kit-enforce-guardrails.md) | Re-asserts all operational guardrails to snap behavior back into compliance when it drifts. | `/orfi-kit-enforce-guardrails` | — |
 | [orfi-kit-set-helper-files-root](docs/skills/orfi-kit-set-helper-files-root.md) | Configures (creates or changes) the per-repo helper-files root the state files live under, recorded in an untracked `.orfi-kits/helper-files-root` pointer. | `/orfi-kit-set-helper-files-root` | A path to your helper-files root (prompted if omitted) |
 | [orfi-kit-init](docs/skills/orfi-kit-init.md) | Bootstraps the kit files (session-state + onboarding placeholders) under `<root>\orfi-kits\` — create-if-absent, never overwrites; quits if already initialized. | `/orfi-kit-init` | The helper-files root (configured on the spot if unset) |
-| [orfi-kit-cleanup-state](docs/skills/orfi-kit-cleanup-state.md) | Strips internal scaffolding (`.orfi-kits/`, `.planning/`, `.trackbed/`, `docs/superpowers/`) before the final epic PR merge — backs up to `helper_files/stripped/` first, then `git rm`. Destructive; `☠️` confirmation prompt. | `/orfi-kit-cleanup-state` | Run on the branch being finalized |
 | [orfi-kit-load-state](docs/skills/orfi-kit-load-state.md) | Restores a prior session by reading its `CLAUDE-SESSION-STATE.md` handoff before any other work. | `/orfi-kit-load-state` | The helper-files root configured (see above); a `CLAUDE-SESSION-STATE.md` written by a prior session |
 | [orfi-kit-persist-state](docs/skills/orfi-kit-persist-state.md) | Writes a session handoff file so you can clear context and resume work later. | `/orfi-kit-persist-state` | The helper-files root configured (see above) |
 | [orfi-kit-run-unit-tests-phase](docs/skills/orfi-kit-run-unit-tests-phase.md) | Runs unit tests for one GSD phase (or all), logging parsed pass/fail/skip summaries. | `/orfi-kit-run-unit-tests-phase` | A .NET project using `dotnet test` |
@@ -52,6 +51,12 @@ Claude Code / OpenCode commands — also available as Copilot slash commands.
 | [orfi-kit-run-codegraph-phase](docs/skills/orfi-kit-run-codegraph-phase.md) | Runs codegraph for a single GSD phase, identified by a phase-number argument. | `/orfi-kit-run-codegraph-phase` | — |
 | [orfi-kit-sync-branch](docs/skills/orfi-kit-sync-branch.md) | Syncs an epic-derived working branch (any prefix) through `origin/master → epic/* → working branch` before push, auto-detecting merge vs rebase. | `/orfi-kit-sync-branch` | An epic-derived working branch (any prefix, not `master`/`epic/*`); `origin` remote; `epic/*` naming |
 | [orfi-kit-sync-master](docs/skills/orfi-kit-sync-master.md) | Rebases the current branch on `origin/master`, resolves conflicts, and force-pushes with `--force-with-lease` for linear history. Aborts on `master`/`epic/*` and steers epic-derived branches to `/orfi-kit-sync-branch`. | `/orfi-kit-sync-master` | A standalone branch (no epic parent); an `origin/master`; a remote tracking branch |
+
+### Roadmap cleanup migration
+
+Completed-roadmap cleanup now belongs to Trackbed's optional `trackbed-cleanup` skill. It is offered after roadmap completion, archives the selected artifacts outside the repository, and requires confirmation before removal. orfi-kit no longer ships `orfi-kit-cleanup-state` and does not depend on Trackbed or a planning framework. The helper-files configuration and session-state commands remain independent.
+
+Existing installations may retain the old command because the installers do not prune retired capabilities. Retire those old installed copies separately after reviewing their locations; install or refresh Trackbed to obtain the replacement on your chosen runtime(s).
 
 ### Hooks & extensions (passive)
 

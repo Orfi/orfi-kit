@@ -6,7 +6,7 @@
 
 Records the **helper-files root** — the directory whose `orfi-kits/` subfolder holds the session-state handoff file and `ONBOARDING.md` — in a small pointer file (`.orfi-kits/helper-files-root`) inside the current repo. The state commands (`/orfi-kit-load-state`, `/orfi-kit-persist-state`) resolve their files relative to this root, so it must be configured before they can run.
 
-The root is per-repo by design: each repo carries its own pointer, so different repos keep separate state and never overwrite each other. The same pointer is shared with orfi-ae-kit (if installed) — both kits read one root per repo. `.orfi-kits/` is **tracked** (it propagates across worktrees) and is stripped before the final epic PR by `/orfi-kit-cleanup-state`.
+The root is per-repo by design: each repo carries its own pointer, so different repos keep separate state and never overwrite each other. The same pointer is shared with orfi-ae-kit (if installed) — both kits read one root per repo. `.orfi-kits/` is **tracked** (it propagates across worktrees).
 
 ## How to invoke
 
