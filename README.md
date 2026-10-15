@@ -170,6 +170,8 @@ instructions.
 | OpenCode | Yes — plugin `tool.execute.before` | Yes — plugin at chat start (root probe) | Yes — plugin `tool.execute.after` (advisory) | **No — no Stop event** | **No — no Stop event** |
 | Codex CLI | Yes — native `PreToolUse` | Yes — global rules (`AGENTS.md`) | Yes — 2 native `PostToolUse` (advisory) | **No — checklist in AGENTS.md** | **No — checklist in AGENTS.md** |
 
+**Windows Codex hooks:** native Windows commands use a dedicated PowerShell launcher through `commandWindows`, which invokes Git Bash and preserves hook input, output and exit status. Both installers upgrade existing hook registrations without duplicates. After a command definition changes, review it in Codex with `/hooks`. Regression checks: `python scripts/test_codex_windows_hooks.py`.
+
 ### Doc-checker scripts (all runtimes)
 
 The installer also places six files from `scripts/` into the selected runtime's `scripts/` directory

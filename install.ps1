@@ -538,12 +538,14 @@ function Unwire-ConventionHooks {
 # .bak backup. Invalid JSON is left untouched, with manual instructions instead.
 
 function Install-CodexHooks {
+    Place (Join-Path $RepoDir 'codex/orfi-run-codex-hook.ps1') (Join-Path $ClaudeHooks 'orfi-run-codex-hook.ps1')
+    $renderHome = $Home_ -replace '\\', '/'
+    $ours = ((Get-Content -Raw $CodexHooksJsonSrc).Replace('@ORFI_CODEX_HOME@', $renderHome)) | ConvertFrom-Json
     $dir = Split-Path -Parent $CodexHooksJson
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     if (Test-Path $CodexHooksJson) {
         try {
             $existing = Get-Content -Raw $CodexHooksJson | ConvertFrom-Json
-            $ours     = Get-Content -Raw $CodexHooksJsonSrc | ConvertFrom-Json
         } catch {
             Say "  $CodexHooksJson is not valid JSON — not touching it."
             Say "  Add the handlers manually from codex/hooks.json in the orfi-kit repo."
@@ -557,6 +559,14 @@ function Install-CodexHooks {
                 # to the commands the user's file does not already register, then
                 # appended with its matcher. All present -> no-op (re-install is
                 # idempotent); some present -> only the missing ones are added.
+                # Refresh Windows transport for existing owned commands without duplicating them.
+                foreach ($desired in @($h.hooks)) {
+                    foreach ($present in @($existing.hooks.$ev | ForEach-Object { $_.hooks })) {
+                        if ($present.command -eq $desired.command) {
+                            $present | Add-Member -NotePropertyName commandWindows -NotePropertyValue $desired.commandWindows -Force
+                        }
+                    }
+                }
                 $known = @($existing.hooks.$ev | ForEach-Object { $_.hooks | ForEach-Object { $_.command } })
                 $missing = @($h.hooks | Where-Object { $known -notcontains $_.command })
                 if ($missing.Count -gt 0) {
@@ -571,11 +581,13 @@ function Install-CodexHooks {
         ($existing | ConvertTo-Json -Depth 100) | Set-Content -Path $CodexHooksJson
         Say "  merged orfi-kit handlers into $CodexHooksJson"
     } else {
-        Place $CodexHooksJsonSrc $CodexHooksJson
+        ($ours | ConvertTo-Json -Depth 100) | Set-Content -LiteralPath $CodexHooksJson
     }
 }
 
 function Remove-CodexHooks {
+    $helper = Join-Path $ClaudeHooks 'orfi-run-codex-hook.ps1'
+    if (Test-Path -LiteralPath $helper) { Remove-Item -LiteralPath $helper }
     if (-not (Test-Path $CodexHooksJson)) { return }
     try { $json = Get-Content -Raw $CodexHooksJson | ConvertFrom-Json }
     catch { Say "  $CodexHooksJson not valid JSON — leaving it untouched."; return }

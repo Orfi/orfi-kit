@@ -25,11 +25,15 @@ That is **5 of 7** hooks — deliberately. The `codex/hooks.json` `description` 
 
 ## Payload contracts
 
-Codex handler config has **no `env` field** — only `type` / `matcher` / `command` / `timeout` / `statusMessage` — and commands run through a shell, so `$HOME` and `$(...)` expand at runtime. The platform is carried **inline in the command string**:
+Codex handler config has **no `env` field**. The POSIX `command` carries its platform inline; Windows uses the separate `commandWindows` field:
 
 ```
 ORFI_HOOK_PLATFORM=codex bash "$HOME/.claude/hooks/orfi-kit-enforce-sync.sh"
 ```
+
+On Windows, each handler has a `commandWindows` override that invokes the installed `orfi-run-codex-hook.ps1` launcher. The installers render its absolute profile path, upgrade existing registrations without duplicates, and leave unrelated hooks intact. The launcher selects Git Bash explicitly (never the Windows/WSL `bash.exe` shim), sets `ORFI_HOOK_PLATFORM=codex`, forwards UTF-8 stdin/stdout, and preserves stderr and the script exit code. A bare POSIX environment assignment is not a valid PowerShell command and previously produced exit code 1.
+
+Run `python scripts/test_codex_windows_hooks.py` on Windows for launcher, denial, error-propagation and reinstall regressions. Changed hook definitions need review through Codex's `/hooks`; trust is not rewritten by the installer.
 
 The scripts emit Codex's payload contracts (exit 0, JSON on stdout):
 
@@ -46,7 +50,7 @@ The scripts emit Codex's payload contracts (exit 0, JSON on stdout):
 
 ## Prerequisites
 
-- The seven hook scripts deployed to `~/.claude/hooks/` (the installer does this whenever any runtime that needs them is selected — Codex included). On Windows Codex runs hooks through Git Bash, so Git Bash must be installed.
+- The seven hook scripts deployed to `~/.claude/hooks/` (the installer does this whenever any runtime that needs them is selected — Codex included). On Windows the PowerShell launcher invokes Git Bash, so Git Bash must be installed.
 - Up-to-date Codex CLI. Registration surfaces can move — reference: `https://developers.openai.com/codex/skills`.
 
 ## Notes

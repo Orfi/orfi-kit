@@ -9,7 +9,8 @@
             "type": "command",
             "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-enforce-sync.sh\"",
             "timeout": 10,
-            "statusMessage": "orfi-kit: checking sync guard"
+            "statusMessage": "orfi-kit: checking sync guard",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"@ORFI_CODEX_HOME@/.claude/hooks/orfi-run-codex-hook.ps1\" -HookName enforce-sync"
           }
         ]
       }
@@ -22,13 +23,15 @@
             "type": "command",
             "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-verify-csharp-format.sh\"",
             "timeout": 120,
-            "statusMessage": "orfi-kit: verifying C# format"
+            "statusMessage": "orfi-kit: verifying C# format",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"@ORFI_CODEX_HOME@/.claude/hooks/orfi-run-codex-hook.ps1\" -HookName verify-csharp-format"
           },
           {
             "type": "command",
             "command": "ORFI_HOOK_PLATFORM=codex bash \"$HOME/.claude/hooks/orfi-kit-verify-cpp-format.sh\"",
             "timeout": 120,
-            "statusMessage": "orfi-kit: verifying C/C++ format"
+            "statusMessage": "orfi-kit: verifying C/C++ format",
+            "commandWindows": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"@ORFI_CODEX_HOME@/.claude/hooks/orfi-run-codex-hook.ps1\" -HookName verify-cpp-format"
           }
         ]
       }

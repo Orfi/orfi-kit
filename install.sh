@@ -304,6 +304,11 @@ remove_codex_skills() {
 
 install_codex_hooks() {
   mkdir -p "$HOME/.codex"
+  place "$REPO_DIR/codex/orfi-run-codex-hook.ps1" "$CLAUDE_HOOKS/orfi-run-codex-hook.ps1"
+  local render_home="$HOME"
+  if command -v cygpath >/dev/null 2>&1; then render_home="$(cygpath -m "$HOME")"; fi
+  local escaped_home; escaped_home="$(printf '%s' "$render_home" | sed 's/[\\&|]/\\&/g')"
+  local src; src="$(sed "s|@ORFI_CODEX_HOME@|$escaped_home|g" "$CODEX_HOOKS_JSON_SRC")"
   if [ -f "$CODEX_HOOKS_JSON" ]; then
     if ! command -v jq >/dev/null 2>&1; then
       say "  jq not found — cannot merge into $CODEX_HOOKS_JSON. Add these handlers"
@@ -318,7 +323,6 @@ install_codex_hooks() {
       say "  manually (see codex/hooks.json in the repo)."
       return 0
     }
-    local src; src="$(cat "$CODEX_HOOKS_JSON_SRC")"
     local tmp; tmp="$(mktemp)"
     jq --argjson ins "$src" '
       def addCommands($existing; $new):
@@ -327,20 +331,31 @@ install_codex_hooks() {
             hooks: [ .hooks[] | select(.command as $c | any($existing[]?.hooks[]?.command; . == $c) | not) ] }
           | select(.hooks | length > 0)
         );
+      def refreshWindows($existing; $new):
+        [ $existing[] | .hooks |= map(
+            . as $present |
+            ([ $new[]?.hooks[]? | select(.command == $present.command) ][0]) as $desired |
+            if $desired.commandWindows then .commandWindows = $desired.commandWindows else . end
+          ) ];
       .hooks //= {} |
       .hooks.PreToolUse  //= [] |
       .hooks.PostToolUse //= [] |
+      .hooks.PreToolUse  = refreshWindows(.hooks.PreToolUse; $ins.hooks.PreToolUse) |
+      .hooks.PostToolUse = refreshWindows(.hooks.PostToolUse; $ins.hooks.PostToolUse) |
       .hooks.PreToolUse  = .hooks.PreToolUse  + addCommands(.hooks.PreToolUse;  $ins.hooks.PreToolUse) |
       .hooks.PostToolUse = .hooks.PostToolUse + addCommands(.hooks.PostToolUse; $ins.hooks.PostToolUse) |
       if has("description") then . else .description = $ins.description end
     ' "$CODEX_HOOKS_JSON" > "$tmp" 2>/dev/null && mv "$tmp" "$CODEX_HOOKS_JSON"
     say "  merged orfi-kit handlers into $CODEX_HOOKS_JSON"
   else
-    place "$CODEX_HOOKS_JSON_SRC" "$CODEX_HOOKS_JSON"
+    printf '%s\n' "$src" > "$CODEX_HOOKS_JSON"
   fi
 }
 
 remove_codex_hooks() {
+  if [ -f "$CLAUDE_HOOKS/orfi-run-codex-hook.ps1" ]; then
+    rm -f "$CLAUDE_HOOKS/orfi-run-codex-hook.ps1"
+  fi
   [ -f "$CODEX_HOOKS_JSON" ] || return 0
   command -v jq >/dev/null 2>&1 || { say "  jq not found — remove the orfi-kit handlers from $CODEX_HOOKS_JSON manually."; return 0; }
   jq empty "$CODEX_HOOKS_JSON" >/dev/null 2>&1 || { say "  $CODEX_HOOKS_JSON not valid JSON — leaving it untouched."; return 0; }
