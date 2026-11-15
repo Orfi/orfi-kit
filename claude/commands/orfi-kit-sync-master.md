@@ -1,67 +1,56 @@
 ---
 name: orfi-kit-sync-master
-description: Commit, rebase on master, and push current branch.
+description: Use when the user requests syncing an epic or standalone branch with master; known epic-derived working branches use sync-branch.
 ---
 
 # Sync Master Workflow
 
-This skill commits local changes, rebases on the latest master, and pushes. The goal is to keep the current feature branch up to date with master while preserving a clean linear history.
+Sync the current epic or standalone branch with origin/master and publish to that same branch. An epic branch is a supported source branch. This skill updates the source branch; it never pushes directly to master/main.
 
-## Steps
+## 1. Classify the branch
 
-### 0. Verify branch eligibility
+Read the current branch and repository branch-parent evidence.
 
-Determine the current branch:
+- Reject detached HEAD, master, and main before mutation; respect other protected destinations.
+- Accept epic/* directly. Its prefix does not prohibit rebasing or require a merge.
+- Route a working branch derived from an epic to orfi-kit-sync-branch for master -> epic -> working-branch synchronization. Do not skip its parent epic.
+- Accept standalone branches with no epic parent. Ask only when parentage is genuinely unresolved; naming alone is insufficient.
 
-```bash
-git branch --show-current
-```
+## 2. Preserve local work and reconcile remote changes
 
-- **Abort** if the branch is `master` or matches `epic/*` — this skill rebases-and-force-pushes, which must never touch a protected or epic branch:
+Inspect status and staged/unstaged diffs. Preserve local, peer, untracked and secret-bearing work. Commit only authorized, reviewed files using explicit paths and repository naming conventions; never stage everything or create empty commits. Do not automatically stash, reset, restore or discard work.
 
-  > ABORTED: /orfi-kit-sync-master rebases on master and force-pushes; it must not run on master or epic/* branches. Current branch: {branch}
+Verify origin's destination without printing embedded credentials. Fetch fresh origin/master and the same-named remote branch when it exists; record the exact remote tip before integration. A fetch failure is not evidence that the branch is absent.
 
-- **If the branch is derived from an epic** (its parent is an `epic/*` branch, e.g. a `feature/`, `fix/`, `chore/` branch under an active epic), STOP and steer the user to the epic-aware skill instead:
+- Equal to the fetched tip or locally ahead: continue.
+- Strictly behind: fast-forward the current branch to that tip.
+- Diverged: preserve both histories and resolve the reconciliation decision before integration; do not overwrite peers.
 
-  > This branch derives from an epic. Rebasing directly on origin/master would skip the epic and diverge from it. Use /orfi-kit-sync-branch (master → epic → this branch) instead of /orfi-kit-sync-master.
+## 3. Choose the integration strategy
 
-  Only continue past this step for a standalone branch that legitimately rebases directly on master (no epic parent). If unsure whether an epic parent exists, ask the user.
+Honor the repository's documented branch/merge policy and the user's explicit choice. Reuse a strategy already resolved in this session rather than asking again.
 
-### 1. Check for uncommitted changes
+- Rebase is the default for an epic or standalone branch when no merge policy overrides it. If linear history or rebase-compatible integration is required, use git rebase origin/master.
+- If the repository/branch policy or user explicitly requires merge-based synchronization, use git merge origin/master.
+- Generic advice that all epics must merge or must never rebase is not a branch-protection rule. Choose from the actual policy and authorization above. Referenced naming conventions must not silently replace this decision.
+- Before rewriting published history, preserve the current history in a verified recovery bundle or existing recovery ref. Obtain any explicit rewrite authorization required by higher guardrails; reuse prior authorization that still covers this branch/action. Do not create extra worktrees, branches or PRs as routine synchronization steps.
 
-Run `git status` to see if there are staged or unstaged changes.
+If origin/master is already an ancestor of HEAD, skip unnecessary integration. If a linear/rebase requirement is still unsatisfied, distinguish that remaining history work from ancestry synchronization; do not claim the branch meets that requirement merely because master is an ancestor. Do not rewrite descendant branches as part of this skill.
 
-- **If there are changes to commit:** Use the `orfi-kit-git-conventions` skill to stage and commit them before proceeding.
-- **If the working tree is clean:** Skip straight to step 2 — do not create an empty commit.
+## 4. Resolve conflicts and verify
 
-### 2. Fetch and rebase on master
+Read each conflicted file and surrounding code. Preserve master's production fixes and the source branch's feature behavior and acceptance criteria; integrate both intentions instead of blindly accepting one side. Stage only resolved paths and continue the active merge/rebase. For genuinely ambiguous intent, preserve the operation and request the specific missing decision; do not automatically abort or discard work.
 
-```
-git fetch origin master
-git rebase origin/master
-```
+Review the actual diff, and review range-diff/history evidence when commits were rewritten. Run repository-required checks appropriate to the changes. Report actual pass/fail/skip counts; stop publication on failures. Complete the permitted preservation, resolution and review work before requesting any remaining push approval.
 
-**Critical: Always use `rebase`, not `merge`.** This keeps the branch history linear and avoids unnecessary merge commits.
+## 5. Publish safely to the same branch
 
-### 3. Handle rebase conflicts (if any)
+Recheck the source branch and explicit destination. Never use a bare push that may target an upstream epic or master.
 
-If the rebase produces conflicts:
+- For a new branch or fast-forward update, use git push origin HEAD:refs/heads/<branch>.
+- If already-published commits were rewritten, an epic and a standalone branch use the same authorized, exact-lease procedure:
+  git push --force-with-lease=refs/heads/<branch>:<recorded-remote-tip> origin HEAD:refs/heads/<branch>
+- Use this rewrite command only with the required explicit authorization and verified backup. Never use an unconditional force push. If the remote moved or the push is rejected, inspect and reconcile; do not silently fetch a new lease and overwrite it.
+- If no publication is needed, report the no-op.
 
-1. Read each conflicted file and understand both sides — what master changed and what our branch changed.
-2. Resolve conflicts by preserving the intent of both sides. The priorities are:
-   - **Do not break production code** — master's changes landed there for a reason (bug fixes, security patches, schema changes). Respect them.
-   - **Do not break our branch's code** — our feature work matters too. Don't just accept theirs and throw away our changes.
-   - If both sides modified the same logic, integrate them so both changes take effect. Read the surrounding code for context on what each side was trying to accomplish.
-3. After resolving all conflicts, run any available linters or type checks to verify nothing is broken.
-4. Stage the resolved files and run `git rebase --continue`.
-5. If a conflict is too ambiguous to resolve confidently (e.g. two competing rewrites of the same function with unclear intent), run `git rebase --abort` and ask the user before proceeding.
-
-### 4. Push to remote
-
-Push the current branch to its remote tracking branch. After a rebase, a force push is needed:
-
-```
-git push origin HEAD --force-with-lease
-```
-
-Use `--force-with-lease` (not `--force`) to protect against overwriting remote changes made by others.
+Report the verified master/source/remote revisions, chosen strategy, actual check results and any outstanding CI or integration-compatibility checks separately. An ancestry check or successful push does not establish passing CI, merge-queue acceptance or an actual merge.

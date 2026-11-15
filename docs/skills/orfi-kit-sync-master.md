@@ -1,42 +1,37 @@
 # orfi-kit-sync-master
 
-> Commit local changes, rebase the current branch on the latest master, and force-push — keeping a clean linear history.
+Synchronize the current **epic or standalone branch** with `origin/master` and publish to that same branch. Master/main remain protected destinations.
 
-## What it does
+## Invocation and runtime sources
 
-Brings your current feature branch up to date with master. It commits any outstanding local work, fetches the latest master, rebases your branch on top of it (never merges), resolves any conflicts while preserving both sides' intent, and pushes the result back to the remote.
+- Claude Code and OpenCode: `/orfi-kit-sync-master`. Both use [the Claude command](../../claude/commands/orfi-kit-sync-master.md).
+- GitHub Copilot CLI: `/orfi-kit-sync-master` through [its skill](../../copilot/skills/orfi-kit-sync-master/SKILL.md).
+- Codex: `$orfi-kit-sync-master` through [its skill](../../codex/skills/orfi-kit-sync-master/SKILL.md). Existing invocation-policy metadata is preserved.
 
-## How to invoke
+## Eligible branches
 
-Run the slash command:
+| Current branch | Behavior |
+| --- | --- |
+| `epic/*` | Sync directly with master; the epic prefix does not prohibit rebase or require merge |
+| Standalone branch without an epic parent | Sync directly with master |
+| Working branch derived from an epic | Use [orfi-kit-sync-branch](orfi-kit-sync-branch.md) for master -> epic -> working branch |
+| Detached HEAD, `master`, or `main` | Reject before mutation |
 
-```
-/orfi-kit-sync-master
-```
+Parentage comes from repository evidence, not only the branch name.
 
-This command does not auto-trigger — it is explicitly invoked by you (`disable-model-invocation` is set).
+## Integration and publication
 
-## Prerequisites
+1. Preserve local, peer, untracked and secret-bearing work. Commit only authorized reviewed paths; do not automatically stage everything, stash, reset, discard or create empty commits.
+2. Fetch fresh master and the same-named remote branch, recording its exact tip. Fast-forward when behind; preserve and reconcile divergent histories rather than overwriting peers. A fetch failure does not establish remote absence.
+3. Honor the documented repository/branch strategy or explicit user choice. Default to **rebase for epic and standalone branches**; use merge when the established policy requires it. Linear-history/rebase requirements must be respected.
+4. Before rewriting published history, preserve a verified recovery bundle/ref and obtain the explicit authorization required by the guardrails. Reuse prior covering authorization without asking again. No extra worktree, branch or PR is a routine requirement.
+5. Resolve conflicts by preserving master's production fixes and the branch's feature behavior/acceptance criteria. Review actual changes and rewritten history, then run the required targeted checks. Preserve ambiguous operations for the missing decision; do not automatically abort/discard.
+6. Publish explicitly to `HEAD:refs/heads/<branch>`. Use a normal push for a new branch or fast-forward update. For an authorized rewrite, use `git push --force-with-lease=refs/heads/<branch>:<recorded-remote-tip> origin HEAD:refs/heads/<branch>`. Never use unconditional force or silently refresh a rejected lease.
 
-- An `origin` remote with a `master` branch (the command runs `git fetch origin master` and `git rebase origin/master`).
-- A branch with an upstream/remote tracking branch to push to.
-- The current branch must be eligible: **not** `master`, **not** an `epic/*` branch, and **not** an epic-derived working branch (those are steered to `/orfi-kit-sync-branch` — see below).
+## Completion limits
 
-## Behavior / rules
+Master being an ancestor establishes ancestry synchronization only. It does not prove linear-history/rebase compatibility, passing CI, queue acceptance or an actual merge. Report these separately with the actual check results and revision bindings. This command does not rewrite descendant feature branches.
 
-1. **Verify branch eligibility** — runs `git branch --show-current`. Because this command rebases directly on `origin/master` and force-pushes, it is only safe for a standalone branch:
-   - **Aborts** if the branch is `master` or matches `epic/*` — a rebase-and-force-push must never touch a protected or epic branch.
-   - **Steers to `/orfi-kit-sync-branch`** if the branch is derived from an epic (its parent is an `epic/*` branch — e.g. a `feature/`, `fix/`, or `chore/` branch under an active epic). Rebasing such a branch directly on `origin/master` would skip the epic and diverge from it, so the command stops and points you at the epic-aware workflow (`master → epic → this branch`) instead.
-   - Continues only for a standalone branch with no epic parent. If it cannot tell whether an epic parent exists, it asks you.
-2. **Check for uncommitted changes** — runs `git status`. If there are staged or unstaged changes, it uses the `orfi-kit-git-conventions` skill to stage and commit them. If the working tree is clean, it skips committing and never creates an empty commit.
-3. **Fetch and rebase on master** — runs `git fetch origin master` then `git rebase origin/master`. Always rebases, never merges, to keep history linear and avoid merge commits.
-4. **Handle rebase conflicts** (if any):
-   - Reads each conflicted file to understand both what master changed and what your branch changed.
-   - Resolves by preserving the intent of both sides: do not break production code (master's changes landed for a reason — bug fixes, security patches, schema changes), and do not break your branch's work. If both sides touched the same logic, integrates them so both changes take effect.
-   - Runs any available linters or type checks after resolving, then stages the resolved files and runs `git rebase --continue`.
-   - If a conflict is too ambiguous to resolve confidently, runs `git rebase --abort` and asks you before proceeding.
-5. **Push to remote** — after a rebase a force push is required, so it runs `git push origin HEAD --force-with-lease`. It uses `--force-with-lease` (never plain `--force`) to avoid overwriting remote changes made by others.
+## Installation and updates
 
-## Notes
-
-- Commits are made through the `orfi-kit-git-conventions` skill, so they follow the kit's commit-message format.
+Both [install.sh](../../install.sh) and [install.ps1](../../install.ps1) already install these sources and replace existing command/skill copies on reinstall. OpenCode receives the shared Claude command; Copilot and Codex receive their own skill directories. No installer routing change is needed for this update. Rerun the installer for the selected runtimes to refresh copied installations; linked installations follow repository changes.
