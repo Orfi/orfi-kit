@@ -131,10 +131,11 @@ $CopilotSkillNames = @(
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
   'orfi-kit-scrum-poker','orfi-kit-set-helper-files-root','orfi-kit-standup',
+  'orfi-kit-story-dod','orfi-kit-story-preflight',
   'orfi-kit-sync-branch','orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
-# The 20 Codex skill dirs (same parity set as Copilot, adapted for Codex).
+# The 22 Codex skill dirs (same parity set as Copilot, adapted for Codex).
 $CodexSkillNames = @(
   'orfi-kit-code-review','orfi-kit-commit','orfi-kit-cpp-code-review',
   'orfi-kit-csharp-code-review','orfi-kit-enforce-guardrails',
@@ -142,15 +143,17 @@ $CodexSkillNames = @(
   'orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
   'orfi-kit-scrum-poker','orfi-kit-set-helper-files-root','orfi-kit-standup',
+  'orfi-kit-story-dod','orfi-kit-story-preflight',
   'orfi-kit-sync-branch','orfi-kit-sync-master','orfi-kit-xml-docs','orfi-kit-doxygen-docs'
 )
 
-# 13 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
+# 15 command files — per-capability docs live in docs/skills/ (repo docs, not runtime).
 $CommandNames = @(
   'orfi-kit-code-review','orfi-kit-commit','orfi-kit-enforce-guardrails',
   'orfi-kit-init','orfi-kit-load-state','orfi-kit-persist-state','orfi-kit-run-codegraph-phase',
   'orfi-kit-run-integration-tests-phase','orfi-kit-run-unit-tests-phase',
-  'orfi-kit-set-helper-files-root','orfi-kit-standup','orfi-kit-sync-branch','orfi-kit-sync-master'
+  'orfi-kit-set-helper-files-root','orfi-kit-standup','orfi-kit-story-dod','orfi-kit-story-preflight',
+  'orfi-kit-sync-branch','orfi-kit-sync-master'
 )
 
 # The 7 shared enforcement hooks. All three runtimes shell to these scripts:

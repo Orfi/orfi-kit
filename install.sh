@@ -130,7 +130,7 @@ ALL_HOOK_NAMES=(
 # The 7 Claude skill dirs (shared by Claude Code + OpenCode).
 CLAUDE_SKILL_NAMES=(orfi-kit-git-conventions orfi-kit-guardrails orfi-kit-scrum-poker orfi-kit-xml-docs orfi-kit-doxygen-docs orfi-kit-csharp-code-review orfi-kit-cpp-code-review)
 
-# The 20 Copilot skill dirs.
+# The 22 Copilot skill dirs.
 COPILOT_SKILL_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-cpp-code-review
   orfi-kit-csharp-code-review
@@ -139,10 +139,11 @@ COPILOT_SKILL_NAMES=(
   orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-standup
+  orfi-kit-story-dod orfi-kit-story-preflight
   orfi-kit-sync-branch orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
 )
 
-# The 20 Codex skill dirs (same parity set as Copilot, adapted for Codex).
+# The 22 Codex skill dirs (same parity set as Copilot, adapted for Codex).
 CODEX_SKILL_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-cpp-code-review
   orfi-kit-csharp-code-review
@@ -151,6 +152,7 @@ CODEX_SKILL_NAMES=(
   orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
   orfi-kit-scrum-poker orfi-kit-set-helper-files-root orfi-kit-standup
+  orfi-kit-story-dod orfi-kit-story-preflight
   orfi-kit-sync-branch orfi-kit-sync-master orfi-kit-xml-docs orfi-kit-doxygen-docs
 )
 
@@ -169,13 +171,14 @@ SCRIPT_NAMES=(
   setup-hooks.ps1 setup-hooks.sh
 )
 
-# The 13 command files (Claude Code / OpenCode only). Per-capability docs live
+# The 15 command files (Claude Code / OpenCode only). Per-capability docs live
 # in docs/skills/ (repo docs, not runtime); the installer copies only these.
 COMMAND_NAMES=(
   orfi-kit-code-review orfi-kit-commit orfi-kit-enforce-guardrails
   orfi-kit-init orfi-kit-load-state orfi-kit-persist-state orfi-kit-run-codegraph-phase
   orfi-kit-run-integration-tests-phase orfi-kit-run-unit-tests-phase
-  orfi-kit-set-helper-files-root orfi-kit-standup orfi-kit-sync-branch orfi-kit-sync-master
+  orfi-kit-set-helper-files-root orfi-kit-standup orfi-kit-story-dod orfi-kit-story-preflight
+  orfi-kit-sync-branch orfi-kit-sync-master
 )
 
 LINK=0
